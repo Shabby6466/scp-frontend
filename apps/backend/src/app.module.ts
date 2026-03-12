@@ -12,6 +12,7 @@ import { AuditModule } from './audit/index.js';
 import { ComplianceModule } from './compliance/index.js';
 import { NotificationModule } from './notification/index.js';
 import { SearchModule } from './search/index.js';
+import { ExportModule } from './export/index.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SearchModule } from './search/index.js';
     ComplianceModule,
     NotificationModule,
     SearchModule,
+    ExportModule,
   ],
   controllers: [AppController],
 })

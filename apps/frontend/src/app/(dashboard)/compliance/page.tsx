@@ -2,7 +2,8 @@
 
 import { useGetHeatmapQuery, useGetAuditReadinessQuery } from '@/store/features/complianceApi';
 import { useAppSelector } from '@/store/hooks';
-import { Shield, AlertTriangle } from 'lucide-react';
+import { Shield, AlertTriangle, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 function getComplianceColor(percent: number): string {
   if (percent >= 90) return 'bg-green-500';
@@ -37,11 +38,23 @@ export default function CompliancePage() {
     ).values(),
   ];
 
+  const handleExport = () => {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:4000';
+    const params = new URLSearchParams();
+    if (schoolId) params.set('schoolId', schoolId);
+    window.open(`${backendUrl}/export/audit-zip?${params.toString()}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-        Compliance Overview
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Compliance Overview
+        </h2>
+        <Button variant="outline" onClick={handleExport}>
+          <Download className="mr-1 h-4 w-4" /> Export Audit Pack
+        </Button>
+      </div>
 
       {/* Audit Readiness Score */}
       <div className="rounded-lg border bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
