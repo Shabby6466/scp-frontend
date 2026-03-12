@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────
+
+enum Role {
+  SUPERADMIN
+  SCHOOL_ADMIN
+  BRANCH_DIRECTOR
+  TEACHER
+  STUDENT
+}
+
+enum DocumentStatus {
+  PENDING
+  VALID
+  EXPIRED
+  ARCHIVED
+}
+
+// ─── User ────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  name      String?
+  role      Role
+  schoolId  String?
+  branchId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school         School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  branch         Branch?  @relation("BranchUsers", fields: [branchId], references: [id], onDelete: SetNull)
+  directedBranch Branch?  @relation("BranchDirector")
+
+  @@index([schoolId])
+  @@index([branchId])
+  @@index([role])
+}
+
+// ─── School ──────────────────────────────────────────────────────────
+
+model School {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  branches  Branch[]
+  documents Document[]
+}
+
+// ─── Branch ──────────────────────────────────────────────────────────
+
+model Branch {
+  id         String   @id @default(cuid())
+  name       String
+  schoolId   String
+  directorId String?  @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  school    School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  director  User?      @relation("BranchDirector", fields: [directorId], references: [id], onDelete: SetNull)
+  users     User[]     @relation("BranchUsers")
+  documents Document[]
+
+  @@index([schoolId])
+}
+
+// ─── DocumentType ────────────────────────────────────────────────────
+
+model DocumentType {
+  id          String   @id @default(cuid())
+  name        String
+  schema      Json
+  isMandatory Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documents Document[]
+}
+
+// ─── Document ────────────────────────────────────────────────────────
+
+model Document {
+  id             String         @id @default(cuid())
+  documentTypeId String
+  metadata       Json?
+  filePath       String
+  version        Int            @default(1)
+  status         DocumentStatus @default(PENDING)
+  expiresAt      DateTime?
+  uploadedBy     String
+  schoolId       String
+  branchId       String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  documentType DocumentType      @relation(fields: [documentTypeId], references: [id])
+  school       School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  branch       Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  versions     DocumentVersion[]
+
+  @@index([schoolId, status])
+  @@index([expiresAt])
+  @@index([uploadedBy])
+  @@index([documentTypeId])
+}
+
+// ─── DocumentVersion ─────────────────────────────────────────────────
+
+model DocumentVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  version    Int
+  filePath   String
+  metadata   Json?
+  uploadedAt DateTime @default(now())
+  uploadedBy String
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, version])
+  @@index([documentId])
+}
+
+// ─── AuditLog ────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entityId  String?
+  userId    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([entityId])
+  @@index([userId])
+  @@index([createdAt])
+}

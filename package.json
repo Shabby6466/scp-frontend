@@ -1,0 +1,24 @@
+{
+  "name": "school-compliance-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2",
+    "prisma": "^6",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@prisma/client": "^6"
+  },
+  "packageManager": "pnpm@9.15.4"
+}
