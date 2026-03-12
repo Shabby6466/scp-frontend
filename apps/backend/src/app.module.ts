@@ -4,6 +4,7 @@ import { AppController } from './app.controller.js';
 import { PrismaModule } from './prisma/index.js';
 import { SupabaseModule } from './supabase/index.js';
 import { AuthModule } from './auth/index.js';
+import { DocumentTypeModule } from './document-type/index.js';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AuthModule } from './auth/index.js';
     PrismaModule,
     SupabaseModule,
     AuthModule,
+    DocumentTypeModule,
   ],
   controllers: [AppController],
 })
