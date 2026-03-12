@@ -8,6 +8,7 @@ import { AuthModule } from './auth/index.js';
 import { DocumentTypeModule } from './document-type/index.js';
 import { DocumentModule } from './document/index.js';
 import { ExpiryModule } from './expiry/index.js';
+import { AuditModule } from './audit/index.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ExpiryModule } from './expiry/index.js';
     DocumentTypeModule,
     DocumentModule,
     ExpiryModule,
+    AuditModule,
   ],
   controllers: [AppController],
 })

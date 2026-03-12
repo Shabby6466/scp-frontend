@@ -19,6 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { Audited } from '../audit/audit.decorator.js';
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,6 +28,7 @@ export class DocumentController {
 
   @Post('upload')
   @Roles(Role.SUPERADMIN, Role.SCHOOL_ADMIN, Role.BRANCH_DIRECTOR)
+  @Audited('DOCUMENT_UPLOAD')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
   upload(
     @Body() dto: CreateDocumentDto,
@@ -38,6 +40,7 @@ export class DocumentController {
 
   @Post(':id/reupload')
   @Roles(Role.SUPERADMIN, Role.SCHOOL_ADMIN, Role.BRANCH_DIRECTOR)
+  @Audited('DOCUMENT_REUPLOAD')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
   reupload(
     @Param('id') id: string,
@@ -68,6 +71,7 @@ export class DocumentController {
   }
 
   @Get(':id/download')
+  @Audited('DOCUMENT_DOWNLOAD')
   getSignedUrl(@Param('id') id: string) {
     return this.service.getSignedUrl(id);
   }
