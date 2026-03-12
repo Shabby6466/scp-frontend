@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/index.js';
 import { SupabaseModule } from './supabase/index.js';
 import { AuthModule } from './auth/index.js';
 import { DocumentTypeModule } from './document-type/index.js';
+import { DocumentModule } from './document/index.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { DocumentTypeModule } from './document-type/index.js';
     SupabaseModule,
     AuthModule,
     DocumentTypeModule,
+    DocumentModule,
   ],
   controllers: [AppController],
 })
