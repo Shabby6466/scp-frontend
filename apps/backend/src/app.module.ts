@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { PrismaModule } from './prisma/index.js';
 import { SupabaseModule } from './supabase/index.js';
+import { AuthModule } from './auth/index.js';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { SupabaseModule } from './supabase/index.js';
     }),
     PrismaModule,
     SupabaseModule,
+    AuthModule,
   ],
   controllers: [AppController],
 })
