@@ -10,6 +10,7 @@ import { DocumentModule } from './document/index.js';
 import { ExpiryModule } from './expiry/index.js';
 import { AuditModule } from './audit/index.js';
 import { ComplianceModule } from './compliance/index.js';
+import { NotificationModule } from './notification/index.js';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ComplianceModule } from './compliance/index.js';
     ExpiryModule,
     AuditModule,
     ComplianceModule,
+    NotificationModule,
   ],
   controllers: [AppController],
 })
