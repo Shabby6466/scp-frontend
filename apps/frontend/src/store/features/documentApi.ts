@@ -1,103 +1,86 @@
 import { api } from '../api';
 
-export interface DocumentVersion {
-  id: string;
-  documentId: string;
-  version: number;
-  filePath: string;
-  uploadedAt: string;
-  uploadedBy: string;
-}
-
 export interface Document {
   id: string;
   documentTypeId: string;
-  documentType: { id: string; name: string };
-  metadata: Record<string, unknown> | null;
-  filePath: string;
-  version: number;
-  status: 'PENDING' | 'VALID' | 'EXPIRED' | 'ARCHIVED';
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  issuedAt: string | null;
   expiresAt: string | null;
-  uploadedBy: string;
-  schoolId: string;
-  branchId: string | null;
+  verifiedAt: string | null;
   createdAt: string;
-  updatedAt: string;
-  versions?: DocumentVersion[];
-}
-
-interface DocumentList {
-  items: Document[];
-  total: number;
-  page: number;
-  limit: number;
-  pages: number;
-}
-
-interface DocumentStats {
-  total: number;
-  valid: number;
-  expired: number;
-  pending: number;
-  expiringSoon: number;
-}
-
-interface QueryParams {
-  schoolId?: string;
-  branchId?: string;
-  documentTypeId?: string;
-  status?: string;
-  page?: number;
-  limit?: number;
+  documentType?: { id: string; name: string; category: string; isMandatory?: boolean; renewalPeriod?: string };
 }
 
 export const documentApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getDocuments: builder.query<DocumentList, QueryParams | void>({
-      query: (params) => ({
-        url: '/documents',
-        params: params ?? {},
-      }),
-      providesTags: ['Document'],
+    getDocumentsByChild: builder.query<Document[], string>({
+      query: (childId) => `/documents/child/${childId}`,
+      providesTags: (_result, _err, childId) => [{ type: 'Document', id: `child-${childId}` }],
     }),
-    getDocument: builder.query<Document, string>({
-      query: (id) => `/documents/${id}`,
-      providesTags: (_r, _e, id) => [{ type: 'Document', id }],
+    getDocumentsByStaff: builder.query<Document[], string>({
+      query: (staffId) => `/documents/staff/${staffId}`,
+      providesTags: (_result, _err, staffId) => [{ type: 'Document', id: `staff-${staffId}` }],
     }),
-    getDocumentStats: builder.query<DocumentStats, { schoolId?: string; branchId?: string } | void>({
-      query: (params) => ({
-        url: '/documents/stats',
-        params: params ?? {},
-      }),
-      providesTags: ['Document'],
+    getDocumentsByBranchFacility: builder.query<Document[], string>({
+      query: (branchId) => `/documents/branch/${branchId}/facility`,
+      providesTags: (_result, _err, branchId) => [{ type: 'Document', id: `facility-${branchId}` }],
     }),
-    uploadDocument: builder.mutation<Document, FormData>({
-      query: (formData) => ({
-        url: '/documents/upload',
+    presign: builder.mutation<
+      { uploadUrl: string; s3Key: string; uploadToken?: string },
+      { category: string; entityId: string; documentTypeId: string; fileName: string; mimeType: string }
+    >({
+      query: (body) => ({
+        url: '/documents/presign',
         method: 'POST',
-        body: formData,
+        body,
       }),
-      invalidatesTags: ['Document'],
     }),
-    reuploadDocument: builder.mutation<Document, { id: string; formData: FormData }>({
-      query: ({ id, formData }) => ({
-        url: `/documents/${id}/reupload`,
+    completeDocument: builder.mutation<
+      Document,
+      {
+        category: string;
+        entityId: string;
+        documentTypeId: string;
+        s3Key: string;
+        fileName: string;
+        mimeType: string;
+        sizeBytes: number;
+        issuedAt?: string;
+        expiresAt?: string;
+      }
+    >({
+      query: (body) => ({
+        url: '/documents/complete',
         method: 'POST',
-        body: formData,
+        body,
       }),
-      invalidatesTags: (_r, _e, { id }) => [{ type: 'Document', id }, 'Document'],
+      invalidatesTags: (_result, _err, { category, entityId }) => [
+        { type: 'Document', id: category === 'CHILD' ? `child-${entityId}` : category === 'STAFF' ? `staff-${entityId}` : `facility-${entityId}` },
+        'Branch',
+        'Analytics',
+      ],
     }),
-    getDownloadUrl: builder.query<{ url: string; expiresIn: number }, string>({
+    getDownloadUrl: builder.query<string, string>({
       query: (id) => `/documents/${id}/download`,
+    }),
+    verifyDocument: builder.mutation<Document, string>({
+      query: (id) => ({
+        url: `/documents/${id}/verify`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['Document', 'Branch', 'Analytics'],
     }),
   }),
 });
 
 export const {
-  useGetDocumentsQuery,
-  useGetDocumentQuery,
-  useGetDocumentStatsQuery,
-  useUploadDocumentMutation,
-  useReuploadDocumentMutation,
+  useGetDocumentsByChildQuery,
+  useGetDocumentsByStaffQuery,
+  useGetDocumentsByBranchFacilityQuery,
+  usePresignMutation,
+  useCompleteDocumentMutation,
   useLazyGetDownloadUrlQuery,
+  useVerifyDocumentMutation,
 } = documentApi;

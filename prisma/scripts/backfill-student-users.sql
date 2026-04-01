@@ -1,0 +1,2 @@
+-- Run manually on databases that still have Child.parentId / UserRole.PARENT (before applying migration.sql).
+-- The preferred path is `prisma/migrations/20250327120000_student_teacher_simplify/migration.sql`.

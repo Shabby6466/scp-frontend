@@ -4,20 +4,24 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { UserRole } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service.js';
+import { isSchoolDirector } from '../school-scope.util.js';
 
 /**
- * Ensures users can only access resources within their own school/branch.
- * SUPERADMIN bypasses all scope checks.
- * SCHOOL_ADMIN can only access data for their schoolId.
- * BRANCH_DIRECTOR can only access data for their branchId.
- * TEACHER/STUDENT can only access their own data.
+ * Ensures users can only access resources within their scope.
+ * ADMIN bypasses all scope checks.
+ * SCHOOL_ADMIN (legacy) can access their school.
+ * School DIRECTOR (schoolId set) can access any branch in their school.
+ * TEACHER is limited to their branch when branchId is present on the request.
  *
- * Expects schoolId/branchId in request params, query, or body.
+ * Expects schoolId or branchId in request params, query, or body.
  */
 @Injectable()
 export class ScopeGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
@@ -25,7 +29,7 @@ export class ScopeGuard implements CanActivate {
       throw new ForbiddenException('No user in request');
     }
 
-    if (user.role === Role.SUPERADMIN) {
+    if (user.role === UserRole.ADMIN) {
       return true;
     }
 
@@ -33,20 +37,34 @@ export class ScopeGuard implements CanActivate {
       request.params?.schoolId ??
       request.query?.schoolId ??
       request.body?.schoolId;
-
     const targetBranchId =
       request.params?.branchId ??
       request.query?.branchId ??
       request.body?.branchId;
 
-    if (user.role === Role.SCHOOL_ADMIN) {
+    if (user.role === UserRole.SCHOOL_ADMIN) {
       if (targetSchoolId && targetSchoolId !== user.schoolId) {
         throw new ForbiddenException('Cannot access another school');
       }
       return true;
     }
 
-    if (user.role === Role.BRANCH_DIRECTOR) {
+    if (isSchoolDirector(user)) {
+      if (targetSchoolId && targetSchoolId !== user.schoolId) {
+        throw new ForbiddenException('Cannot access another school');
+      }
+      if (targetBranchId) {
+        const branch = await this.prisma.branch.findUnique({
+          where: { id: targetBranchId },
+        });
+        if (!branch || branch.schoolId !== user.schoolId) {
+          throw new ForbiddenException('Cannot access this branch');
+        }
+      }
+      return true;
+    }
+
+    if (user.role === UserRole.BRANCH_DIRECTOR) {
       if (targetSchoolId && targetSchoolId !== user.schoolId) {
         throw new ForbiddenException('Cannot access another school');
       }
@@ -56,12 +74,11 @@ export class ScopeGuard implements CanActivate {
       return true;
     }
 
-    // TEACHER / STUDENT: most restrictive
-    if (targetSchoolId && targetSchoolId !== user.schoolId) {
-      throw new ForbiddenException('Cannot access another school');
-    }
-    if (targetBranchId && targetBranchId !== user.branchId) {
-      throw new ForbiddenException('Cannot access another branch');
+    if (user.role === UserRole.TEACHER) {
+      if (targetBranchId && targetBranchId !== user.branchId) {
+        throw new ForbiddenException('Cannot access another branch');
+      }
+      return true;
     }
 
     return true;

@@ -5,14 +5,11 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Res,
   UseGuards,
 } from '@nestjs/common';
-import * as express from 'express';
 import { AuthService } from './auth.service.js';
-import { RegisterDto, LoginDto } from './dto/index.js';
+import { LoginDto, RegisterDto, VerifyEmailDto } from './dto/index.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
-import { JwtRefreshGuard } from './guards/jwt-refresh.guard.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 
 interface RequestUser {
@@ -25,43 +22,28 @@ interface RequestUser {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
-  async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
-    const result = await this.authService.register(dto);
-    this.setRefreshCookie(res, result.refreshToken);
-    return {
-      user: result.user,
-      accessToken: result.accessToken,
-    };
-  }
-
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(
-    @Body() dto: LoginDto,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
-    const result = await this.authService.login(dto);
-    this.setRefreshCookie(res, result.refreshToken);
-    return {
-      user: result.user,
-      accessToken: result.accessToken,
-    };
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
-  @Post('refresh')
-  @UseGuards(JwtRefreshGuard)
+  @Post('register')
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  async refresh(
-    @CurrentUser() user: RequestUser,
-    @Res({ passthrough: true }) res: express.Response,
-  ) {
-    const tokens = await this.authService.refresh(user.id, user.email, user.role);
-    this.setRefreshCookie(res, tokens.refreshToken);
-    return { accessToken: tokens.accessToken };
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(@Body() body: { email: string }) {
+    await this.authService.resendVerification(body.email);
+    return { message: 'Verification code sent' };
   }
 
   @Get('me')
@@ -72,18 +54,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(@Res({ passthrough: true }) res: express.Response) {
-    res.clearCookie('refresh_token');
+  logout() {
     return { message: 'Logged out' };
-  }
-
-  private setRefreshCookie(res: express.Response, token: string) {
-    res.cookie('refresh_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
-    });
   }
 }

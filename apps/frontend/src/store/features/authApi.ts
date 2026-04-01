@@ -10,17 +10,17 @@ interface RegisterRequest {
   email: string;
   password: string;
   name: string;
-  role: string;
-  schoolId?: string;
-  branchId?: string;
+}
+
+interface VerifyEmailRequest {
+  email: string;
+  code?: string;
+  token?: string;
+  password?: string;
 }
 
 interface AuthResponse {
   user: AuthUser;
-  accessToken: string;
-}
-
-interface RefreshResponse {
   accessToken: string;
 }
 
@@ -33,21 +33,29 @@ export const authApi = api.injectEndpoints({
         body,
       }),
     }),
-    register: builder.mutation<AuthResponse, RegisterRequest>({
+    register: builder.mutation<{ message: string; skipVerification?: boolean }, RegisterRequest>({
       query: (body) => ({
         url: '/auth/register',
         method: 'POST',
         body,
       }),
     }),
+    verifyEmail: builder.mutation<AuthResponse, VerifyEmailRequest>({
+      query: (body) => ({
+        url: '/auth/verify-email',
+        method: 'POST',
+        body,
+      }),
+    }),
+    resendVerification: builder.mutation<{ message: string }, { email: string }>({
+      query: (body) => ({
+        url: '/auth/resend-verification',
+        method: 'POST',
+        body,
+      }),
+    }),
     getMe: builder.query<AuthUser, void>({
       query: () => '/auth/me',
-    }),
-    refresh: builder.mutation<RefreshResponse, void>({
-      query: () => ({
-        url: '/auth/refresh',
-        method: 'POST',
-      }),
     }),
     logout: builder.mutation<void, void>({
       query: () => ({
@@ -61,7 +69,8 @@ export const authApi = api.injectEndpoints({
 export const {
   useLoginMutation,
   useRegisterMutation,
+  useVerifyEmailMutation,
+  useResendVerificationMutation,
   useGetMeQuery,
-  useRefreshMutation,
   useLogoutMutation,
 } = authApi;

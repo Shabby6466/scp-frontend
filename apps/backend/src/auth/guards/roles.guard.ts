@@ -5,23 +5,20 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator.js';
 
-const ROLE_HIERARCHY: Record<Role, number> = {
-  SUPERADMIN: 4,
-  SCHOOL_ADMIN: 3,
-  BRANCH_DIRECTOR: 2,
-  TEACHER: 1,
-  STUDENT: 0,
-};
-
+/**
+ * Explicit allow-list (not numeric hierarchy) so BRANCH_DIRECTOR does not
+ * satisfy DIRECTOR-only routes, and SCHOOL_ADMIN can still reach routes that
+ * list DIRECTOR (service enforces school scope).
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
@@ -35,17 +32,20 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('No user in request');
     }
 
-    const userLevel = ROLE_HIERARCHY[user.role as Role];
-    const hasRole = requiredRoles.some(
-      (role) => userLevel >= ROLE_HIERARCHY[role],
-    );
+    const role = user.role as UserRole;
 
-    if (!hasRole) {
-      throw new ForbiddenException(
-        `Requires one of: ${requiredRoles.join(', ')}`,
-      );
+    if (role === UserRole.ADMIN) {
+      return true;
     }
 
-    return true;
+    if (requiredRoles.includes(role)) {
+      return true;
+    }
+
+    if (role === UserRole.SCHOOL_ADMIN && requiredRoles.includes(UserRole.DIRECTOR)) {
+      return true;
+    }
+
+    throw new ForbiddenException(`Requires one of: ${requiredRoles.join(', ')}`);
   }
 }

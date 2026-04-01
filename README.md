@@ -7,7 +7,7 @@ A production-ready SaaS application for school groups to manage compliance docum
 ## Tech Stack
 
 - **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Redux Toolkit + RTK Query
-- **Backend:** NestJS 11, TypeScript, Prisma ORM, Supabase Storage
+- **Backend:** NestJS 11, TypeScript, Prisma ORM, object storage via **Supabase Storage** (default) or **AWS S3** (`STORAGE_PROVIDER` in `.env`)
 - **Database:** PostgreSQL 16
 - **Monorepo:** Turborepo + pnpm workspaces
 

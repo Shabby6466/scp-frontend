@@ -6,7 +6,11 @@ export interface AuthUser {
   name: string | null;
   role: string;
   schoolId: string | null;
-  branchId: string | null;
+  branchId?: string | null;
+  school?: { id: string; name: string } | null;
+  branch?: { id: string; name: string; schoolId?: string } | null;
+  /** From GET /auth/me — login payloads may omit this until sync. */
+  hasPassword?: boolean;
 }
 
 interface AuthState {
@@ -33,9 +37,6 @@ export const authSlice = createSlice({
       state.accessToken = action.payload.accessToken;
       state.isAuthenticated = true;
     },
-    updateToken: (state, action: PayloadAction<string>) => {
-      state.accessToken = action.payload;
-    },
     logout: (state) => {
       state.user = null;
       state.accessToken = null;
@@ -44,5 +45,5 @@ export const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, updateToken, logout } = authSlice.actions;
+export const { setCredentials, logout } = authSlice.actions;
 export default authSlice.reducer;

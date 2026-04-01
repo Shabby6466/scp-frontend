@@ -1,0 +1,9 @@
+-- Add BRANCH_DIRECTOR to UserRole
+ALTER TYPE "UserRole" ADD VALUE 'BRANCH_DIRECTOR';
+
+-- Remove Class domain
+DROP TABLE IF EXISTS "ClassAssignment";
+ALTER TABLE "Child" DROP CONSTRAINT IF EXISTS "Child_classId_fkey";
+DROP INDEX IF EXISTS "Child_classId_idx";
+ALTER TABLE "Child" DROP COLUMN IF EXISTS "classId";
+DROP TABLE IF EXISTS "Class";

@@ -1,44 +1,32 @@
 'use client';
 
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 import { AuthGuard } from '@/components/auth-guard';
-import { SearchBar } from '@/components/search-bar';
+import { AuthUserSync } from '@/components/auth-user-sync';
+import { AppSidebar } from '@/components/app-sidebar';
+import { Breadcrumbs } from '@/components/breadcrumbs';
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { ModeToggle } from '@/components/mode-toggle';
+import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { RoleBadge } from '@/components/role-badge';
 import { logout } from '@/store/features/authSlice';
 import { useLogoutMutation } from '@/store/features/authApi';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { LogOut, Shield } from 'lucide-react';
-import Link from 'next/link';
-
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/documents', label: 'Documents' },
-  { href: '/document-types', label: 'Types' },
-  { href: '/compliance', label: 'Compliance' },
-  { href: '/audit-logs', label: 'Audit' },
-];
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <AuthGuard>
-      <div className="flex min-h-screen flex-col">
-        <DashboardHeader />
-        <main className="flex-1 bg-gray-50 p-6 dark:bg-gray-950">
-          {children}
-        </main>
-      </div>
-    </AuthGuard>
-  );
-}
-
-function DashboardHeader() {
-  const dispatch = useAppDispatch();
   const router = useRouter();
-  const user = useAppSelector((state) => state.auth.user);
+  const dispatch = useAppDispatch();
+  const authUser = useAppSelector((s) => s.auth.user);
   const [logoutApi] = useLogoutMutation();
 
   const handleLogout = async () => {
@@ -48,41 +36,47 @@ function DashboardHeader() {
   };
 
   return (
-    <header className="border-b bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-3">
-          <Shield className="h-6 w-6 text-blue-600" />
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-            School Compliance
-          </h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <SearchBar />
-          {user && (
-            <span className="hidden text-sm text-gray-600 dark:text-gray-400 sm:inline">
-              {user.name ?? user.email}{' '}
-              <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                {user.role}
-              </span>
-            </span>
-          )}
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="mr-1 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </div>
-      <nav className="flex gap-1 overflow-x-auto px-6 pb-2">
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-    </header>
+    <AuthGuard>
+      <AuthUserSync />
+      <SidebarProvider className="h-svh overflow-hidden flex">
+        <AppSidebar />
+        <SidebarInset className="flex min-h-0 flex-1 flex-col">
+          <header className="flex h-16 shrink-0 items-center gap-3 bg-secondary px-6">
+            <SidebarTrigger className="-ml-1 shrink-0" />
+            <div className="min-w-0 flex-1 overflow-x-auto">
+              <Breadcrumbs />
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {authUser ? (
+                <Link
+                  href="/profile"
+                  className="hidden min-w-0 items-center gap-2 rounded-2xl bg-background px-4 py-2 text-sm transition-all hover:opacity-80 sm:flex"
+                >
+                  <span className="max-w-[160px] truncate font-semibold text-primary">
+                    {authUser.name ?? authUser.email}
+                  </span>
+                  <RoleBadge role={authUser.role} />
+                </Link>
+              ) : null}
+              <ModeToggle />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-2xl"
+                aria-label="Log out"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Log out</span>
+              </Button>
+            </div>
+          </header>
+          <main className="bg-app-main min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+            {children}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </AuthGuard>
   );
 }

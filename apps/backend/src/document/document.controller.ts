@@ -1,86 +1,69 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Query,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { Role } from '@prisma/client';
+import { Body, Controller, Get, Param, Post, Patch, UseGuards } from '@nestjs/common';
 import { DocumentService } from './document.service.js';
-import { CreateDocumentDto } from './dto/create-document.dto.js';
-import { QueryDocumentDto } from './dto/query-document.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { Audited } from '../audit/audit.decorator.js';
+import { PresignDto } from './dto/presign.dto.js';
+import { CompleteDocumentDto } from './dto/complete.dto.js';
+import { UserRole } from '@prisma/client';
 
 @Controller('documents')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 export class DocumentController {
-  constructor(private readonly service: DocumentService) {}
+  constructor(private readonly documentService: DocumentService) {}
 
-  @Post('upload')
-  @Roles(Role.SUPERADMIN, Role.SCHOOL_ADMIN, Role.BRANCH_DIRECTOR)
-  @Audited('DOCUMENT_UPLOAD')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
-  upload(
-    @Body() dto: CreateDocumentDto,
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser('id') userId: string,
+  @Post('presign')
+  presign(
+    @Body() dto: PresignDto,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
-    return this.service.upload(dto, file, userId);
+    return this.documentService.presign(dto, user);
   }
 
-  @Post(':id/reupload')
-  @Roles(Role.SUPERADMIN, Role.SCHOOL_ADMIN, Role.BRANCH_DIRECTOR)
-  @Audited('DOCUMENT_REUPLOAD')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
-  reupload(
+  @Post('complete')
+  complete(
+    @Body() dto: CompleteDocumentDto,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.documentService.complete(dto, user);
+  }
+
+  @Get('child/:childId')
+  listByChild(
+    @Param('childId') childId: string,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.documentService.listByChild(childId, user);
+  }
+
+  @Get('staff/:staffId')
+  listByStaff(
+    @Param('staffId') staffId: string,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.documentService.listByStaff(staffId, user);
+  }
+
+  @Get('branch/:branchId/facility')
+  listByBranchFacility(
+    @Param('branchId') branchId: string,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+  ) {
+    return this.documentService.listByBranchFacility(branchId, user);
+  }
+
+  @Patch(':id/verify')
+  verify(
     @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser('id') userId: string,
-    @Body('metadata') metadata?: Record<string, unknown>,
-    @Body('expiresAt') expiresAt?: string,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
-    return this.service.reupload(id, file, userId, metadata, expiresAt);
-  }
-
-  @Get()
-  findAll(@Query() query: QueryDocumentDto) {
-    return this.service.findAll(query);
-  }
-
-  @Get('stats')
-  getStats(
-    @Query('schoolId') schoolId?: string,
-    @Query('branchId') branchId?: string,
-  ) {
-    return this.service.getStats(schoolId, branchId);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+    return this.documentService.verify(id, user);
   }
 
   @Get(':id/download')
-  @Audited('DOCUMENT_DOWNLOAD')
-  getSignedUrl(@Param('id') id: string) {
-    return this.service.getSignedUrl(id);
-  }
-
-  @Get(':id/versions/:version/download')
-  getVersionSignedUrl(
+  getDownloadUrl(
     @Param('id') id: string,
-    @Param('version', ParseIntPipe) version: number,
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
-    return this.service.getVersionSignedUrl(id, version);
+    return this.documentService.getDownloadUrl(id, user);
   }
 }

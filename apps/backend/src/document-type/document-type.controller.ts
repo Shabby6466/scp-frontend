@@ -1,51 +1,27 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { DocumentTypeService } from './document-type.service.js';
-import { CreateDocumentTypeDto } from './dto/create-document-type.dto.js';
-import { UpdateDocumentTypeDto } from './dto/update-document-type.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
+import { DocumentCategory, UserRole } from '@prisma/client';
 
 @Controller('document-types')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard)
 export class DocumentTypeController {
-  constructor(private readonly service: DocumentTypeService) {}
-
-  @Post()
-  @Roles(Role.SUPERADMIN)
-  create(@Body() dto: CreateDocumentTypeDto) {
-    return this.service.create(dto);
-  }
+  constructor(private readonly documentTypeService: DocumentTypeService) {}
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(
+    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+    @Query('category') category?: DocumentCategory,
+    @Query('schoolId') schoolId?: string,
+    @Query('position') position?: string,
+    @Query('childId') childId?: string,
+  ) {
+    return this.documentTypeService.findAll({ category, schoolId, position, childId }, user);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
-  }
-
-  @Patch(':id')
-  @Roles(Role.SUPERADMIN)
-  update(@Param('id') id: string, @Body() dto: UpdateDocumentTypeDto) {
-    return this.service.update(id, dto);
-  }
-
-  @Delete(':id')
-  @Roles(Role.SUPERADMIN)
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+    return this.documentTypeService.findOne(id);
   }
 }

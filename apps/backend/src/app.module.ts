@@ -1,18 +1,18 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller.js';
 import { PrismaModule } from './prisma/index.js';
-import { SupabaseModule } from './supabase/index.js';
+import { MailerModule } from './mailer/index.js';
+import { StorageModule } from './storage/index.js';
 import { AuthModule } from './auth/index.js';
-import { DocumentTypeModule } from './document-type/index.js';
+import { SchoolModule } from './school/index.js';
+import { UserModule } from './user/index.js';
+import { BranchModule } from './branch/branch.module.js';
+import { DocumentTypeModule } from './document-type/document-type.module.js';
 import { DocumentModule } from './document/index.js';
-import { ExpiryModule } from './expiry/index.js';
-import { AuditModule } from './audit/index.js';
-import { ComplianceModule } from './compliance/index.js';
-import { NotificationModule } from './notification/index.js';
-import { SearchModule } from './search/index.js';
-import { ExportModule } from './export/index.js';
+import { ChildModule } from './child/index.js';
+import { SettingsModule } from './settings/index.js';
+import { AnalyticsModule } from './analytics/analytics.module.js';
 
 @Module({
   imports: [
@@ -20,18 +20,18 @@ import { ExportModule } from './export/index.js';
       isGlobal: true,
       envFilePath: '../../.env',
     }),
-    ScheduleModule.forRoot(),
     PrismaModule,
-    SupabaseModule,
+    MailerModule,
+    StorageModule,
     AuthModule,
+    SchoolModule,
+    UserModule,
+    BranchModule,
     DocumentTypeModule,
     DocumentModule,
-    ExpiryModule,
-    AuditModule,
-    ComplianceModule,
-    NotificationModule,
-    SearchModule,
-    ExportModule,
+    ChildModule,
+    SettingsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
 })
