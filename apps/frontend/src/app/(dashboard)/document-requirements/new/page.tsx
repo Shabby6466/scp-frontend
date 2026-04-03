@@ -1,19 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAppSelector } from '@/store/hooks';
-import { useGetAllUsersQuery, useGetSchoolUsersQuery } from '@/store/features/userApi';
-import {
-  useAssignDocumentTypeUsersMutation,
-  useCreateDocumentTypeMutation,
-} from '@/store/features/documentTypeApi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCreateDocumentTypeMutation } from '@/store/features/documentTypeApi';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast, toastError } from '@/lib/toast';
 import { PageBackLink } from '@/components/page-back-link';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
 const ROLE_OPTIONS = ['BRANCH_DIRECTOR', 'TEACHER', 'STUDENT'] as const;
 
@@ -34,31 +33,8 @@ export default function NewDocumentRequirementPage() {
 
   const [name, setName] = useState('');
   const [targetRole, setTargetRole] = useState<string>('TEACHER');
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-
-  const { data: allUsers = [] } = useGetAllUsersQuery(undefined, {
-    skip: !authUser || authUser.role !== 'ADMIN',
-  });
-  const { data: schoolUsers = [] } = useGetSchoolUsersQuery(authUser?.schoolId ?? '', {
-    skip: !authUser || authUser.role === 'ADMIN' || !authUser.schoolId,
-  });
-
-  const users = authUser?.role === 'ADMIN' ? allUsers : schoolUsers;
-  const assignableUsers = useMemo(
-    () =>
-      users.filter((user) => {
-        if (!authUser) return false;
-        if (!canAssignTarget(authUser.role, user.role)) return false;
-        if (authUser.role === 'BRANCH_DIRECTOR') {
-          return authUser.branchId != null && authUser.branchId === user.branchId;
-        }
-        return user.role === targetRole;
-      }),
-    [authUser, users, targetRole],
-  );
 
   const [createDocumentType, { isLoading: creating }] = useCreateDocumentTypeMutation();
-  const [assignUsers, { isLoading: assigning }] = useAssignDocumentTypeUsersMutation();
 
   const canManage =
     authUser?.role === 'ADMIN' ||
@@ -70,18 +46,15 @@ export default function NewDocumentRequirementPage() {
     e.preventDefault();
     if (!authUser) return;
     try {
-      const created = await createDocumentType({
+      await createDocumentType({
         name,
         targetRole,
         schoolId: authUser.role === 'ADMIN' ? undefined : authUser.schoolId ?? undefined,
       }).unwrap();
-      if (selectedUserIds.length > 0) {
-        await assignUsers({ documentTypeId: created.id, userIds: selectedUserIds }).unwrap();
-      }
-      toast('Document type created and assigned');
+      toast('Document type created');
       router.push('/document-uploading');
     } catch (error) {
-      toastError(error, 'Failed to create and assign document type');
+      toastError(error, 'Failed to create document type');
     }
   };
 
@@ -99,7 +72,18 @@ export default function NewDocumentRequirementPage() {
       <PageBackLink href="/document-uploading" />
       <Card>
         <CardHeader>
-          <CardTitle>Create and assign document type</CardTitle>
+          <CardTitle>Create document type</CardTitle>
+          <CardDescription>
+            Define a name and which role it applies to. To require specific people to upload it, go to{' '}
+            <Link href="/school/teachers" className="text-primary underline-offset-4 hover:underline">
+              Teachers
+            </Link>{' '}
+            or{' '}
+            <Link href="/school/students" className="text-primary underline-offset-4 hover:underline">
+              Students
+            </Link>
+            , select rows, and assign this document type there.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
@@ -114,14 +98,11 @@ export default function NewDocumentRequirementPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="target-role">Target role</Label>
+              <Label htmlFor="target-role">Applies to role</Label>
               <select
                 id="target-role"
                 value={targetRole}
-                onChange={(e) => {
-                  setTargetRole(e.target.value);
-                  setSelectedUserIds([]);
-                }}
+                onChange={(e) => setTargetRole(e.target.value)}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               >
                 {ROLE_OPTIONS.filter((role) => canAssignTarget(authUser.role, role)).map((role) => (
@@ -130,37 +111,28 @@ export default function NewDocumentRequirementPage() {
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-muted-foreground">
+                Only users with this role can be given this requirement from the Teachers or Students
+                pages.
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label>Assign users</Label>
-              <div className="max-h-64 space-y-2 overflow-auto rounded-md border p-3">
-                {assignableUsers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No users available for this role.</p>
-                ) : (
-                  assignableUsers.map((user) => (
-                    <label key={user.id} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={selectedUserIds.includes(user.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedUserIds((prev) => [...prev, user.id]);
-                          } else {
-                            setSelectedUserIds((prev) => prev.filter((id) => id !== user.id));
-                          }
-                        }}
-                      />
-                      <span>
-                        {user.name ?? user.email} ({user.role.replace('_', ' ')})
-                      </span>
-                    </label>
-                  ))
-                )}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={creating}>
+                {creating ? 'Saving…' : 'Create document type'}
+              </Button>
+              <Link
+                href="/school/teachers"
+                className={cn(buttonVariants({ variant: 'outline', size: 'default' }))}
+              >
+                Assign on Teachers
+              </Link>
+              <Link
+                href="/school/students"
+                className={cn(buttonVariants({ variant: 'outline', size: 'default' }))}
+              >
+                Assign on Students
+              </Link>
             </div>
-            <Button type="submit" disabled={creating || assigning}>
-              {creating || assigning ? 'Saving...' : 'Create and assign'}
-            </Button>
           </form>
         </CardContent>
       </Card>
