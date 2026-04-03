@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import type { StorageDriver, PresignedUploadResult } from './storage-driver.interface.js';
+import type {
+  StorageDriver,
+  PresignedUploadResult,
+} from './storage-driver.interface.js';
 import { S3StorageDriver } from './s3-storage.driver.js';
 import { SupabaseStorageDriver } from './supabase-storage.driver.js';
 
@@ -18,7 +21,9 @@ export class StorageService {
       this.config.get<string>('STORAGE_PROVIDER') ?? 'supabase'
     ).toLowerCase();
     this.driver =
-      provider === 's3' ? new S3StorageDriver(this.config) : new SupabaseStorageDriver(this.config);
+      provider === 's3'
+        ? new S3StorageDriver(this.config)
+        : new SupabaseStorageDriver(this.config);
   }
 
   /** Same logical key shape for every provider (stored in `Document.s3Key`). */
@@ -43,7 +48,11 @@ export class StorageService {
     contentType: string,
     expiresInSeconds = 900,
   ): Promise<PresignedUploadResult> {
-    return this.driver.createPresignedUploadUrl(key, contentType, expiresInSeconds);
+    return this.driver.createPresignedUploadUrl(
+      key,
+      contentType,
+      expiresInSeconds,
+    );
   }
 
   async createPresignedDownloadUrl(

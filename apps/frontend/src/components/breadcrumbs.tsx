@@ -33,6 +33,8 @@ const pathLabels: Record<string, string> = {
   compliance: 'Compliance',
   settings: 'Settings',
   profile: 'My profile',
+  'document-uploading': 'Document Uploading',
+  'document-requirements': 'Document Requirements',
 };
 
 export function Breadcrumbs({ items: customItems }: BreadcrumbsProps) {

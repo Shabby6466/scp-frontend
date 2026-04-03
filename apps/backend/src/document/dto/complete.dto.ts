@@ -1,13 +1,9 @@
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
-import { DocumentCategory } from '@prisma/client';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class CompleteDocumentDto {
-  @IsEnum(DocumentCategory)
-  category!: DocumentCategory;
-
   @IsString()
   @IsNotEmpty()
-  entityId!: string;
+  ownerUserId!: string;
 
   @IsString()
   @IsNotEmpty()
@@ -31,7 +27,7 @@ export class CompleteDocumentDto {
 
   @IsOptional()
   @IsString()
-  expiresAt?: string; // ISO date string
+  expiresAt?: string;
 
   /** Issue / issuance date (YYYY-MM-DD or full ISO). */
   @IsOptional()

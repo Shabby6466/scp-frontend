@@ -7,7 +7,10 @@ export class UpdateUserDto {
   name?: string;
 
   /** When set and non-empty, replaces the account password (min 8 characters). */
-  @ValidateIf((o: UpdateUserDto) => typeof o.password === 'string' && o.password.length > 0)
+  @ValidateIf(
+    (o: UpdateUserDto) =>
+      typeof o.password === 'string' && o.password.length > 0,
+  )
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters' })
   password?: string;

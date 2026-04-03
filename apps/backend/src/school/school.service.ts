@@ -31,11 +31,15 @@ export class SchoolService {
         }
 
         if (director.role === UserRole.ADMIN) {
-          throw new BadRequestException('A platform admin cannot be assigned as a school director');
+          throw new BadRequestException(
+            'A platform admin cannot be assigned as a school director',
+          );
         }
 
         if (director.role !== UserRole.DIRECTOR) {
-          throw new BadRequestException('Selected user must have the director role');
+          throw new BadRequestException(
+            'Selected user must have the director role',
+          );
         }
 
         await tx.user.update({
@@ -72,7 +76,8 @@ export class SchoolService {
       });
     }
     const where =
-      (isSchoolDirector(user) || (user.role === UserRole.SCHOOL_ADMIN && user.schoolId))
+      isSchoolDirector(user) ||
+      (user.role === UserRole.SCHOOL_ADMIN && user.schoolId)
         ? { id: user.schoolId! }
         : {};
     return this.prisma.school.findMany({
@@ -121,7 +126,11 @@ export class SchoolService {
     return school;
   }
 
-  async update(id: string, dto: UpdateSchoolDto, user?: { role: UserRole; schoolId: string | null }) {
+  async update(
+    id: string,
+    dto: UpdateSchoolDto,
+    user?: { role: UserRole; schoolId: string | null },
+  ) {
     if (user?.role === UserRole.DIRECTOR) {
       if (!user.schoolId || user.schoolId !== id) {
         throw new ForbiddenException('Cannot update this school');

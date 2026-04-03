@@ -3,6 +3,7 @@ import { api } from '../api';
 export interface Document {
   id: string;
   documentTypeId: string;
+  ownerUserId?: string | null;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -10,26 +11,33 @@ export interface Document {
   expiresAt: string | null;
   verifiedAt: string | null;
   createdAt: string;
-  documentType?: { id: string; name: string; category: string; isMandatory?: boolean; renewalPeriod?: string };
+  documentType?: {
+    id: string;
+    name: string;
+    targetRole?: string;
+    isMandatory?: boolean;
+    renewalPeriod?: string;
+  };
 }
 
 export const documentApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getDocumentsByChild: builder.query<Document[], string>({
-      query: (childId) => `/documents/child/${childId}`,
-      providesTags: (_result, _err, childId) => [{ type: 'Document', id: `child-${childId}` }],
+    getDocumentsByOwner: builder.query<Document[], string>({
+      query: (ownerUserId) => `/documents/owner/${ownerUserId}`,
+      providesTags: (_result, _err, ownerUserId) => [{ type: 'Document', id: `owner-${ownerUserId}` }],
     }),
     getDocumentsByStaff: builder.query<Document[], string>({
       query: (staffId) => `/documents/staff/${staffId}`,
       providesTags: (_result, _err, staffId) => [{ type: 'Document', id: `staff-${staffId}` }],
     }),
-    getDocumentsByBranchFacility: builder.query<Document[], string>({
-      query: (branchId) => `/documents/branch/${branchId}/facility`,
-      providesTags: (_result, _err, branchId) => [{ type: 'Document', id: `facility-${branchId}` }],
-    }),
     presign: builder.mutation<
       { uploadUrl: string; s3Key: string; uploadToken?: string },
-      { category: string; entityId: string; documentTypeId: string; fileName: string; mimeType: string }
+      {
+        ownerUserId: string;
+        documentTypeId: string;
+        fileName: string;
+        mimeType: string;
+      }
     >({
       query: (body) => ({
         url: '/documents/presign',
@@ -40,8 +48,7 @@ export const documentApi = api.injectEndpoints({
     completeDocument: builder.mutation<
       Document,
       {
-        category: string;
-        entityId: string;
+        ownerUserId: string;
         documentTypeId: string;
         s3Key: string;
         fileName: string;
@@ -56,11 +63,52 @@ export const documentApi = api.injectEndpoints({
         method: 'POST',
         body,
       }),
-      invalidatesTags: (_result, _err, { category, entityId }) => [
-        { type: 'Document', id: category === 'CHILD' ? `child-${entityId}` : category === 'STAFF' ? `staff-${entityId}` : `facility-${entityId}` },
+      invalidatesTags: (_result, _err, { ownerUserId }) => [
+        { type: 'Document' as const, id: `owner-${ownerUserId}` },
         'Branch',
         'Analytics',
       ],
+    }),
+    getAssignedSummary: builder.query<
+      {
+        assignedCount: number;
+        uploadedCount: number;
+        remainingCount: number;
+        items: Array<{
+          documentType: { id: string; name: string; renewalPeriod: string; targetRole?: string | null };
+          latestDocument: Document | null;
+          remainingDays: number | null;
+        }>;
+      },
+      void
+    >({
+      query: () => '/documents/assigned/me/summary',
+      providesTags: ['Document', 'DocumentType'],
+    }),
+    getPerFormDetail: builder.query<
+      {
+        owner: { id: string; name: string | null; email: string };
+        documentType: { id: string; name: string; renewalPeriod: string } | null;
+        latestDocument: Document | null;
+        uploadedDate: string | null;
+        dueDate: string | null;
+        remainingDays: number | null;
+      },
+      { ownerUserId: string; documentTypeId: string }
+    >({
+      query: ({ ownerUserId, documentTypeId }) =>
+        `/documents/owner/${ownerUserId}/type/${documentTypeId}`,
+      providesTags: (_r, _e, arg) => [{ type: 'Document', id: `owner-${arg.ownerUserId}` }],
+    }),
+    exportPerFormPdf: builder.mutation<
+      Blob,
+      { ownerUserId: string; documentTypeId: string }
+    >({
+      query: ({ ownerUserId, documentTypeId }) => ({
+        url: `/documents/owner/${ownerUserId}/type/${documentTypeId}/export`,
+        method: 'GET',
+        responseHandler: async (response) => response.blob(),
+      }),
     }),
     getDownloadUrl: builder.query<string, string>({
       query: (id) => `/documents/${id}/download`,
@@ -76,11 +124,13 @@ export const documentApi = api.injectEndpoints({
 });
 
 export const {
-  useGetDocumentsByChildQuery,
+  useGetDocumentsByOwnerQuery,
   useGetDocumentsByStaffQuery,
-  useGetDocumentsByBranchFacilityQuery,
   usePresignMutation,
   useCompleteDocumentMutation,
+  useGetAssignedSummaryQuery,
+  useGetPerFormDetailQuery,
+  useExportPerFormPdfMutation,
   useLazyGetDownloadUrlQuery,
   useVerifyDocumentMutation,
 } = documentApi;

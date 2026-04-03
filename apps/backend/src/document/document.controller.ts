@@ -1,10 +1,21 @@
-import { Body, Controller, Get, Param, Post, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Patch,
+  Res,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
 import { DocumentService } from './document.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PresignDto } from './dto/presign.dto.js';
 import { CompleteDocumentDto } from './dto/complete.dto.js';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
 
 @Controller('documents')
 @UseGuards(JwtAuthGuard)
@@ -14,7 +25,13 @@ export class DocumentController {
   @Post('presign')
   presign(
     @Body() dto: PresignDto,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
     return this.documentService.presign(dto, user);
   }
@@ -22,39 +39,113 @@ export class DocumentController {
   @Post('complete')
   complete(
     @Body() dto: CompleteDocumentDto,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
     return this.documentService.complete(dto, user);
   }
 
-  @Get('child/:childId')
-  listByChild(
-    @Param('childId') childId: string,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
-  ) {
-    return this.documentService.listByChild(childId, user);
-  }
-
+  /** Alias: documents for a user (teacher, student, etc.) by user id. */
   @Get('staff/:staffId')
   listByStaff(
     @Param('staffId') staffId: string,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
-    return this.documentService.listByStaff(staffId, user);
+    return this.documentService.listByOwner(staffId, user);
   }
 
-  @Get('branch/:branchId/facility')
-  listByBranchFacility(
-    @Param('branchId') branchId: string,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+  @Get('owner/:ownerUserId')
+  listByOwner(
+    @Param('ownerUserId') ownerUserId: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
-    return this.documentService.listByBranchFacility(branchId, user);
+    return this.documentService.listByOwner(ownerUserId, user);
+  }
+
+  @Get('assigned/me/summary')
+  getAssignedSummary(
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.getAssignedSummary(user);
+  }
+
+  @Get('owner/:ownerUserId/type/:documentTypeId')
+  getPerFormDetail(
+    @Param('ownerUserId') ownerUserId: string,
+    @Param('documentTypeId') documentTypeId: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.getPerFormDetail(
+      ownerUserId,
+      documentTypeId,
+      user,
+    );
+  }
+
+  @Get('owner/:ownerUserId/type/:documentTypeId/export')
+  async exportPerFormPdf(
+    @Param('ownerUserId') ownerUserId: string,
+    @Param('documentTypeId') documentTypeId: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, fileName } = await this.documentService.exportPerFormPdf(
+      ownerUserId,
+      documentTypeId,
+      user,
+    );
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${fileName}"`,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Patch(':id/verify')
   verify(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
     return this.documentService.verify(id, user);
   }
@@ -62,7 +153,13 @@ export class DocumentController {
   @Get(':id/download')
   getDownloadUrl(
     @Param('id') id: string,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
     return this.documentService.getDownloadUrl(id, user);
   }

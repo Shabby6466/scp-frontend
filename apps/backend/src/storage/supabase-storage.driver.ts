@@ -1,6 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { StorageDriver, PresignedUploadResult } from './storage-driver.interface.js';
+import type {
+  StorageDriver,
+  PresignedUploadResult,
+} from './storage-driver.interface.js';
 
 export class SupabaseStorageDriver implements StorageDriver {
   private clientInstance: SupabaseClient | undefined;
@@ -18,7 +21,9 @@ export class SupabaseStorageDriver implements StorageDriver {
       const url = this.config.get<string>('SUPABASE_URL')?.trim();
       const key = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY')?.trim();
       if (!url || !key) {
-        throw new Error('Supabase storage is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)');
+        throw new Error(
+          'Supabase storage is not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)',
+        );
       }
       this.clientInstance = createClient(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },
@@ -40,8 +45,8 @@ export class SupabaseStorageDriver implements StorageDriver {
     contentType: string,
     _expiresInSeconds = 900,
   ): Promise<PresignedUploadResult> {
-    const { data, error } = await this.client().storage
-      .from(this.bucket)
+    const { data, error } = await this.client()
+      .storage.from(this.bucket)
       .createSignedUploadUrl(key);
 
     if (error) {
@@ -61,8 +66,8 @@ export class SupabaseStorageDriver implements StorageDriver {
     key: string,
     expiresInSeconds = 3600,
   ): Promise<string> {
-    const { data, error } = await this.client().storage
-      .from(this.bucket)
+    const { data, error } = await this.client()
+      .storage.from(this.bucket)
       .createSignedUrl(key, expiresInSeconds);
 
     if (error) {

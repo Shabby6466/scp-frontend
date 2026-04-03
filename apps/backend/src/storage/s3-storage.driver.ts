@@ -5,7 +5,10 @@ import {
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { StorageDriver, PresignedUploadResult } from './storage-driver.interface.js';
+import type {
+  StorageDriver,
+  PresignedUploadResult,
+} from './storage-driver.interface.js';
 
 export class S3StorageDriver implements StorageDriver {
   private readonly client: S3Client;
@@ -22,7 +25,9 @@ export class S3StorageDriver implements StorageDriver {
         this.config.get<string>('AWS_SECRET_ACCESS_KEY')
           ? {
               accessKeyId: this.config.getOrThrow<string>('AWS_ACCESS_KEY_ID'),
-              secretAccessKey: this.config.getOrThrow<string>('AWS_SECRET_ACCESS_KEY'),
+              secretAccessKey: this.config.getOrThrow<string>(
+                'AWS_SECRET_ACCESS_KEY',
+              ),
             }
           : undefined,
     });

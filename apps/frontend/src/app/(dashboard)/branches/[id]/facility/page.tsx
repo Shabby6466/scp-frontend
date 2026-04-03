@@ -1,13 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useGetBranchQuery } from '@/store/features/branchApi';
-import { useGetDocumentsByBranchFacilityQuery } from '@/store/features/documentApi';
 import { useGetDocumentTypesQuery } from '@/store/features/documentTypeApi';
 import { toast, toastError } from '@/lib/toast';
 import { putFileToPresignedUrl } from '@/lib/presigned-upload';
-import { usePresignMutation, useCompleteDocumentMutation, useLazyGetDownloadUrlQuery, useVerifyDocumentMutation } from '@/store/features/documentApi';
+import {
+  usePresignMutation,
+  useCompleteDocumentMutation,
+  useLazyGetDownloadUrlQuery,
+  useVerifyDocumentMutation,
+  useGetDocumentsByOwnerQuery,
+} from '@/store/features/documentApi';
 import { useAppSelector } from '@/store/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentChecklistRow } from '@/components/document-checklist-row';
@@ -15,6 +20,8 @@ import { DocumentUploadMetadataDialog } from '@/components/document-upload-metad
 import { PageBackLink } from '@/components/page-back-link';
 import { PageHeader } from '@/components/page-header';
 import { InlineLoading } from '@/components/inline-loading';
+import { EmptyState } from '@/components/empty-state';
+import { FileCheck } from 'lucide-react';
 
 export default function FacilityDocsPage() {
   const params = useParams();
@@ -28,8 +35,25 @@ export default function FacilityDocsPage() {
   } | null>(null);
 
   const { data: branch } = useGetBranchQuery(branchId);
-  const { data: documents } = useGetDocumentsByBranchFacilityQuery(branchId);
-  const { data: docTypes } = useGetDocumentTypesQuery({ category: 'FACILITY' });
+
+  const ownerUserId = useMemo(() => {
+    if (user?.role === 'BRANCH_DIRECTOR' && user.branchId === branchId) {
+      return user.id;
+    }
+    const bd = branch?.users?.[0];
+    return bd?.id ?? null;
+  }, [user, branchId, branch?.users]);
+
+  const { data: documents } = useGetDocumentsByOwnerQuery(ownerUserId ?? '', {
+    skip: !ownerUserId,
+  });
+  const { data: docTypes } = useGetDocumentTypesQuery(
+    {
+      schoolId: branch?.schoolId ?? undefined,
+      targetRole: 'BRANCH_DIRECTOR',
+    },
+    { skip: !branch?.schoolId },
+  );
   const [presign] = usePresignMutation();
   const [completeDoc] = useCompleteDocumentMutation();
   const [getDownloadUrl] = useLazyGetDownloadUrlQuery();
@@ -47,14 +71,16 @@ export default function FacilityDocsPage() {
     setUploadTarget({ documentTypeId, documentTypeLabel, file });
   };
 
-  const handleUploadWithMeta = async (meta: { issuedAt: string; expiresAt: string | undefined }) => {
-    if (!uploadTarget) return;
+  const handleUploadWithMeta = async (meta: {
+    issuedAt: string;
+    expiresAt: string | undefined;
+  }) => {
+    if (!uploadTarget || !ownerUserId) return;
     const { documentTypeId, file } = uploadTarget;
     setUploadingTypeId(documentTypeId);
     try {
       const { uploadUrl, s3Key, uploadToken } = await presign({
-        category: 'FACILITY',
-        entityId: branchId,
+        ownerUserId,
         documentTypeId,
         fileName: file.name,
         mimeType: file.type || 'application/octet-stream',
@@ -65,8 +91,7 @@ export default function FacilityDocsPage() {
       if (!res.ok) throw new Error('Upload failed');
 
       await completeDoc({
-        category: 'FACILITY',
-        entityId: branchId,
+        ownerUserId,
         documentTypeId,
         s3Key,
         fileName: file.name,
@@ -91,11 +116,25 @@ export default function FacilityDocsPage() {
 
   if (!branch) return <InlineLoading />;
 
+  if (!ownerUserId) {
+    return (
+      <div className="space-y-6">
+        <PageBackLink href={`/branches/${branchId}`} />
+        <PageHeader title={`Branch documents – ${branch.name}`} />
+        <EmptyState
+          icon={FileCheck}
+          title="No branch director on file"
+          description="Assign a branch director to this location to upload branch-level compliance documents."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageBackLink href={`/branches/${branchId}`} />
 
-      <PageHeader title={`Facility documents – ${branch.name}`} />
+      <PageHeader title={`Branch documents – ${branch.name}`} />
 
       <DocumentUploadMetadataDialog
         open={!!uploadTarget}
@@ -113,24 +152,24 @@ export default function FacilityDocsPage() {
           <CardTitle className="text-base">Checklist</CardTitle>
         </CardHeader>
         <CardContent className="px-0 pb-0">
-        <div className="divide-y">
-          {docTypes?.map((dt) => {
-            const doc = docsByType.get(dt.id);
-            return (
-              <DocumentChecklistRow
-                key={dt.id}
-                documentTypeName={dt.name}
-                mandatory={dt.isMandatory}
-                doc={doc}
-                uploading={uploadingTypeId === dt.id}
-                canVerify={canVerify}
-                onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
-                onDownload={() => doc && handleDownload(doc.id)}
-                onVerify={() => doc && void verifyDoc(doc.id)}
-              />
-            );
-          })}
-        </div>
+          <div className="divide-y">
+            {docTypes?.map((dt) => {
+              const doc = docsByType.get(dt.id);
+              return (
+                <DocumentChecklistRow
+                  key={dt.id}
+                  documentTypeName={dt.name}
+                  mandatory={dt.isMandatory}
+                  doc={doc}
+                  uploading={uploadingTypeId === dt.id}
+                  canVerify={canVerify}
+                  onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
+                  onDownload={() => doc && handleDownload(doc.id)}
+                  onVerify={() => doc && void verifyDoc(doc.id)}
+                />
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
     </div>

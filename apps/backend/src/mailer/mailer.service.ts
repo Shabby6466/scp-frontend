@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
 
@@ -11,13 +15,18 @@ export class MailerService {
 
   constructor(private readonly config: ConfigService) {
     const apiKey = this.config.get<string>('MAILERSEND_API_KEY');
-    this.fromEmail = this.config.get<string>('MAILERSEND_FROM_EMAIL') ?? 'noreply@schoolsystem.com';
-    this.fromName = this.config.get<string>('MAILERSEND_FROM_NAME') ?? 'School System';
+    this.fromEmail =
+      this.config.get<string>('MAILERSEND_FROM_EMAIL') ??
+      'noreply@schoolsystem.com';
+    this.fromName =
+      this.config.get<string>('MAILERSEND_FROM_NAME') ?? 'School System';
 
     if (apiKey) {
       this.client = new MailerSend({ apiKey });
     } else {
-      this.logger.warn('MAILERSEND_API_KEY not set; emails will be logged only');
+      this.logger.warn(
+        'MAILERSEND_API_KEY not set; emails will be logged only',
+      );
     }
   }
 
@@ -105,8 +114,13 @@ export class MailerService {
     );
   }
 
-  async sendInvite(toEmail: string, code: string, inviterName?: string): Promise<void> {
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+  async sendInvite(
+    toEmail: string,
+    code: string,
+    inviterName?: string,
+  ): Promise<void> {
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
     const verifyUrl = `${frontendUrl}/verify?email=${encodeURIComponent(toEmail)}&invite=1`;
 
     const subject = 'You have been invited to School System';
@@ -128,6 +142,82 @@ export class MailerService {
       `Invite email sent to ${toEmail}`,
       (client) => client.email.send(emailParams),
       () => this.logger.log(`[DEV] Invite OTP for ${toEmail}: ${code}`),
+    );
+  }
+
+  async sendDocTypeAssigned(
+    toEmail: string,
+    documentTypeName: string,
+  ): Promise<void> {
+    const subject = 'New document assigned';
+    const html = `<p>A new required document has been assigned: <strong>${documentTypeName}</strong></p>`;
+    const text = `A new required document has been assigned: ${documentTypeName}`;
+
+    const emailParams = new EmailParams()
+      .setFrom(new Sender(this.fromEmail, this.fromName))
+      .setTo([new Recipient(toEmail, toEmail)])
+      .setSubject(subject)
+      .setHtml(html)
+      .setText(text);
+
+    await this.dispatchEmail(
+      `Document assignment email sent to ${toEmail}`,
+      (client) => client.email.send(emailParams),
+      () =>
+        this.logger.log(
+          `[DEV] Document assigned for ${toEmail}: ${documentTypeName}`,
+        ),
+    );
+  }
+
+  async sendDocumentUploadedNotice(
+    toEmail: string,
+    documentTypeName: string,
+  ): Promise<void> {
+    const subject = 'Document uploaded';
+    const html = `<p>A document upload was completed for: <strong>${documentTypeName}</strong></p>`;
+    const text = `A document upload was completed for: ${documentTypeName}`;
+
+    const emailParams = new EmailParams()
+      .setFrom(new Sender(this.fromEmail, this.fromName))
+      .setTo([new Recipient(toEmail, toEmail)])
+      .setSubject(subject)
+      .setHtml(html)
+      .setText(text);
+
+    await this.dispatchEmail(
+      `Document uploaded notification sent to ${toEmail}`,
+      (client) => client.email.send(emailParams),
+      () =>
+        this.logger.log(
+          `[DEV] Document uploaded notice for ${toEmail}: ${documentTypeName}`,
+        ),
+    );
+  }
+
+  async sendDocumentDueReminder(
+    toEmail: string,
+    documentTypeName: string,
+    dueDate: string,
+  ): Promise<void> {
+    const subject = 'Document due reminder';
+    const html = `<p>Your document <strong>${documentTypeName}</strong> is due on <strong>${dueDate}</strong>.</p>`;
+    const text = `Your document ${documentTypeName} is due on ${dueDate}.`;
+
+    const emailParams = new EmailParams()
+      .setFrom(new Sender(this.fromEmail, this.fromName))
+      .setTo([new Recipient(toEmail, toEmail)])
+      .setSubject(subject)
+      .setHtml(html)
+      .setText(text);
+
+    await this.dispatchEmail(
+      `Document due reminder sent to ${toEmail}`,
+      (client) => client.email.send(emailParams),
+      () =>
+        this.logger.log(
+          `[DEV] Document due reminder for ${toEmail}: ${documentTypeName} due ${dueDate}`,
+        ),
     );
   }
 }

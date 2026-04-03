@@ -19,17 +19,14 @@ import {
 /** Plain shape for `userBelongsToSchool` query (avoids ESLint losing Prisma.GetPayload nested types). */
 interface UserSchoolScopeRow {
   schoolId: string | null;
+  role: UserRole;
   branch: { schoolId: string } | null;
-  studentEnrollment: { branch: { schoolId: string } | null } | null;
 }
 
-type UserBranchScopeRow = Prisma.UserGetPayload<{
-  select: {
-    role: true;
-    branchId: true;
-    studentEnrollment: { select: { branchId: true } };
-  };
-}>;
+interface UserBranchScopeRow {
+  role: UserRole;
+  branchId: string | null;
+}
 
 @Injectable()
 export class UserService {
@@ -58,12 +55,6 @@ export class UserService {
 
     if (existing) {
       throw new ConflictException('Email already registered');
-    }
-
-    if (dto.role === UserRole.STUDENT) {
-      throw new BadRequestException(
-        'Student accounts are created when a child is enrolled at a branch',
-      );
     }
 
     const { schoolId, branchId } = await this.resolveScopeForCreate(
@@ -130,7 +121,7 @@ export class UserService {
       (isSchoolDirector(currentUser) ||
         currentUser.role === UserRole.SCHOOL_ADMIN) &&
       branchId &&
-      dto.role === UserRole.TEACHER
+      (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT)
     ) {
       await this.assertBranchInSchool(branchId, currentUser.schoolId!);
     }
@@ -146,6 +137,33 @@ export class UserService {
       }
     }
 
+    if (
+      currentUser.role === UserRole.BRANCH_DIRECTOR &&
+      dto.role === UserRole.STUDENT
+    ) {
+      if (!branchId || branchId !== currentUser.branchId) {
+        throw new ForbiddenException(
+          'Students must be created for your branch only',
+        );
+      }
+    }
+
+    let resolvedSchoolId: string | null = schoolId;
+    let resolvedBranchId: string | null = branchId;
+    if (
+      (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT) &&
+      branchId
+    ) {
+      const b = await this.prisma.branch.findUnique({
+        where: { id: branchId },
+      });
+      if (!b) {
+        throw new NotFoundException('Branch not found');
+      }
+      resolvedSchoolId = b.schoolId;
+      resolvedBranchId = branchId;
+    }
+
     const { otpEmailVerificationEnabled } = await this.settings.getPublic();
     const skipInviteEmail =
       dto.role !== UserRole.ADMIN && !otpEmailVerificationEnabled;
@@ -159,10 +177,14 @@ export class UserService {
           dto.role === UserRole.DIRECTOR ||
           dto.role === UserRole.BRANCH_DIRECTOR
             ? (schoolId ?? null)
-            : null,
+            : dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT
+              ? resolvedSchoolId
+              : null,
         branchId:
-          dto.role === UserRole.TEACHER || dto.role === UserRole.BRANCH_DIRECTOR
-            ? (branchId ?? null)
+          dto.role === UserRole.TEACHER ||
+          dto.role === UserRole.STUDENT ||
+          dto.role === UserRole.BRANCH_DIRECTOR
+            ? resolvedBranchId
             : null,
         staffPosition: null,
         staffClearanceActive: false,
@@ -346,19 +368,15 @@ export class UserService {
       throw new NotFoundException('School not found');
     }
 
-    const schoolScope = {
+    const schoolScope: Prisma.UserWhereInput = {
       OR: [
         { schoolId },
         { branch: { schoolId } },
-        {
-          studentEnrollment: {
-            branch: { schoolId },
-          },
-        },
+        { role: UserRole.STUDENT, branch: { schoolId } },
       ],
     };
 
-    const where =
+    const where: Prisma.UserWhereInput =
       currentUser.role === UserRole.BRANCH_DIRECTOR && currentUser.branchId
         ? {
             AND: [
@@ -366,7 +384,10 @@ export class UserService {
               {
                 OR: [
                   { branchId: currentUser.branchId },
-                  { studentEnrollment: { branchId: currentUser.branchId } },
+                  {
+                    role: UserRole.STUDENT,
+                    branchId: currentUser.branchId,
+                  },
                 ],
               },
             ],
@@ -442,7 +463,9 @@ export class UserService {
       (dto.schoolId !== undefined || dto.branchId !== undefined) &&
       actor.role !== UserRole.ADMIN
     ) {
-      throw new ForbiddenException('Only a platform admin can assign school or branch');
+      throw new ForbiddenException(
+        'Only a platform admin can assign school or branch',
+      );
     }
 
     const target = await this.prisma.user.findUnique({
@@ -459,7 +482,9 @@ export class UserService {
     }
 
     if (target.role === UserRole.ADMIN && adminScopePatch) {
-      throw new BadRequestException('Cannot assign school or branch to a platform admin');
+      throw new BadRequestException(
+        'Cannot assign school or branch to a platform admin',
+      );
     }
 
     if (actor.id === target.id) {
@@ -637,10 +662,8 @@ export class UserService {
       where: { id: userId },
       select: {
         schoolId: true,
+        role: true,
         branch: { select: { schoolId: true } },
-        studentEnrollment: {
-          select: { branch: { select: { schoolId: true } } },
-        },
       },
     });
     if (!u) {
@@ -652,8 +675,7 @@ export class UserService {
     if (u.branch?.schoolId === schoolId) {
       return true;
     }
-    const studentBranchSchoolId = u.studentEnrollment?.branch?.schoolId;
-    return studentBranchSchoolId === schoolId;
+    return false;
   }
 
   private async userBelongsToBranchScope(
@@ -665,15 +687,15 @@ export class UserService {
       select: {
         role: true,
         branchId: true,
-        studentEnrollment: { select: { branchId: true } },
       },
     });
     if (!u) return false;
-    if (u.role === UserRole.TEACHER || u.role === UserRole.BRANCH_DIRECTOR) {
+    if (
+      u.role === UserRole.TEACHER ||
+      u.role === UserRole.BRANCH_DIRECTOR ||
+      u.role === UserRole.STUDENT
+    ) {
       return u.branchId === branchId;
-    }
-    if (u.role === UserRole.STUDENT) {
-      return u.studentEnrollment?.branchId === branchId;
     }
     return false;
   }
@@ -697,10 +719,11 @@ export class UserService {
     if (isSchoolDirector(currentUser)) {
       if (
         dto.role !== UserRole.TEACHER &&
+        dto.role !== UserRole.STUDENT &&
         dto.role !== UserRole.BRANCH_DIRECTOR
       ) {
         throw new ForbiddenException(
-          'You can only create teachers or branch directors',
+          'You can only create teachers, students, or branch directors',
         );
       }
       return;
@@ -711,18 +734,19 @@ export class UserService {
       }
       if (
         dto.role !== UserRole.TEACHER &&
+        dto.role !== UserRole.STUDENT &&
         dto.role !== UserRole.BRANCH_DIRECTOR
       ) {
         throw new ForbiddenException(
-          'You can only create teachers or branch directors',
+          'You can only create teachers, students, or branch directors',
         );
       }
       return;
     }
     if (currentUser.role === UserRole.BRANCH_DIRECTOR) {
-      if (dto.role !== UserRole.TEACHER) {
+      if (dto.role !== UserRole.TEACHER && dto.role !== UserRole.STUDENT) {
         throw new ForbiddenException(
-          'You can only create teachers for your branch',
+          'You can only create teachers or students for your branch',
         );
       }
       return;
@@ -757,7 +781,7 @@ export class UserService {
         }
         return { schoolId: dto.schoolId ?? null, branchId: null };
       }
-      if (dto.role === UserRole.TEACHER) {
+      if (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT) {
         return { schoolId: null, branchId: dto.branchId ?? null };
       }
       return { schoolId: null, branchId: null };

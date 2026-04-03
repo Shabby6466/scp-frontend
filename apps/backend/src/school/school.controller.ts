@@ -30,9 +30,7 @@ export class SchoolController {
   }
 
   @Get()
-  findAll(
-    @CurrentUser() user: { role: UserRole; schoolId: string | null },
-  ) {
+  findAll(@CurrentUser() user: { role: UserRole; schoolId: string | null }) {
     return this.schoolService.findAll(user);
   }
 

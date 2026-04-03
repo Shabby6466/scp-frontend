@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
@@ -39,22 +47,45 @@ export class UserController {
 
   @Patch('users/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
   updateUser(
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
     return this.userService.updateUser(id, dto, user);
   }
 
   @Post('schools/:schoolId/users')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
   createUser(
     @Param('schoolId') schoolId: string,
     @Body() dto: CreateUserDto,
-    @CurrentUser() user: { id: string; role: UserRole; schoolId: string | null; branchId: string | null; name?: string | null },
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+      name?: string | null;
+    },
   ) {
     return this.userService.createUser(
       { ...dto, schoolId: dto.schoolId ?? schoolId },
@@ -64,10 +95,16 @@ export class UserController {
 
   @Get('schools/:schoolId/users')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
   listBySchool(
     @Param('schoolId') schoolId: string,
-    @CurrentUser() user: { role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
     return this.userService.listBySchool(schoolId, user);
   }
@@ -77,7 +114,8 @@ export class UserController {
   @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR)
   listBranchDirectorCandidates(
     @Param('schoolId') schoolId: string,
-    @CurrentUser() user: { role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: { role: UserRole; schoolId: string | null; branchId: string | null },
   ) {
     return this.userService.listBranchDirectorCandidates(schoolId, user);
   }
@@ -86,7 +124,12 @@ export class UserController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
   async listTeachers(
-    @CurrentUser() user: { role: UserRole; schoolId: string | null; branchId: string | null },
+    @CurrentUser()
+    user: {
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
   ) {
     return this.userService.listTeachersForSchoolDirector(user);
   }

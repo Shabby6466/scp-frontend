@@ -48,7 +48,11 @@ export class BranchService {
         },
       });
 
-      await this.syncBranchDirectorForBranch(tx, branch, dto.branchDirectorUserId);
+      await this.syncBranchDirectorForBranch(
+        tx,
+        branch,
+        dto.branchDirectorUserId,
+      );
 
       return branch;
     });
@@ -157,7 +161,11 @@ export class BranchService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      await this.syncBranchDirectorForBranch(tx, branch, dto.branchDirectorUserId);
+      await this.syncBranchDirectorForBranch(
+        tx,
+        branch,
+        dto.branchDirectorUserId,
+      );
 
       const data: { name?: string } = {};
       if (dto.name != null) {
@@ -231,11 +239,15 @@ export class BranchService {
     }
 
     if (directorUser.role === UserRole.ADMIN) {
-      throw new BadRequestException('A platform admin cannot be assigned as a branch director');
+      throw new BadRequestException(
+        'A platform admin cannot be assigned as a branch director',
+      );
     }
 
     if (directorUser.role !== UserRole.BRANCH_DIRECTOR) {
-      throw new BadRequestException('Selected user must have the branch director role');
+      throw new BadRequestException(
+        'Selected user must have the branch director role',
+      );
     }
 
     if (directorUser.branchId != null && directorUser.branchId !== branch.id) {
@@ -248,7 +260,9 @@ export class BranchService {
       directorUser.schoolId != null &&
       directorUser.schoolId !== branch.schoolId
     ) {
-      throw new BadRequestException('Branch director belongs to a different school');
+      throw new BadRequestException(
+        'Branch director belongs to a different school',
+      );
     }
 
     await tx.user.updateMany({
@@ -276,11 +290,20 @@ export class BranchService {
 
   private async ensureCanAccessBranchRecord(
     branch: { id: string; schoolId: string },
-    user: { role: UserRole; schoolId: string | null; branchId: string | null; id?: string },
+    user: {
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+      id?: string;
+    },
   ) {
     if (user.role === UserRole.ADMIN) return;
 
-    if (user.role === UserRole.SCHOOL_ADMIN && user.schoolId === branch.schoolId) return;
+    if (
+      user.role === UserRole.SCHOOL_ADMIN &&
+      user.schoolId === branch.schoolId
+    )
+      return;
 
     if (directorOwnsBranchSchool(user, branch.schoolId)) return;
 
@@ -288,11 +311,8 @@ export class BranchService {
 
     if (user.role === UserRole.TEACHER && user.branchId === branch.id) return;
 
-    if (user.role === UserRole.STUDENT && user.id) {
-      const enrolled = await this.prisma.child.findFirst({
-        where: { branchId: branch.id, studentUserId: user.id },
-      });
-      if (enrolled) return;
+    if (user.role === UserRole.STUDENT && user.branchId === branch.id) {
+      return;
     }
 
     throw new ForbiddenException('Cannot access this branch');

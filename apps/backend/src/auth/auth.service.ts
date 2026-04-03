@@ -84,7 +84,9 @@ export class AuthService {
 
     const { otpEmailVerificationEnabled } = await this.settings.getPublic();
     if (otpEmailVerificationEnabled && !user.emailVerifiedAt) {
-      throw new UnauthorizedException('Please verify your email before logging in');
+      throw new UnauthorizedException(
+        'Please verify your email before logging in',
+      );
     }
 
     const valid = await bcrypt.compare(dto.password, user.password);
@@ -92,7 +94,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const accessToken = await this.generateAccessToken(user.id, user.email, user.role);
+    const accessToken = await this.generateAccessToken(
+      user.id,
+      user.email,
+      user.role,
+    );
 
     return {
       user: {
@@ -109,7 +115,9 @@ export class AuthService {
     };
   }
 
-  async register(dto: RegisterDto): Promise<{ message: string; skipVerification?: boolean }> {
+  async register(
+    dto: RegisterDto,
+  ): Promise<{ message: string; skipVerification?: boolean }> {
     const flags = await this.settings.getPublic();
     if (!flags.selfRegistrationEnabled) {
       throw new ForbiddenException('Self-service registration is disabled');
@@ -138,7 +146,10 @@ export class AuthService {
         },
       });
       this.logger.log(`User registered: ${email} (verified, no OTP)`);
-      return { message: 'Account created. You can sign in now.', skipVerification: true };
+      return {
+        message: 'Account created. You can sign in now.',
+        skipVerification: true,
+      };
     }
 
     await this.prisma.user.create({
@@ -157,7 +168,9 @@ export class AuthService {
     return { message: 'Check your email for the verification code' };
   }
 
-  async verifyEmail(dto: VerifyEmailDto): Promise<{ user: object; accessToken: string }> {
+  async verifyEmail(
+    dto: VerifyEmailDto,
+  ): Promise<{ user: object; accessToken: string }> {
     const email = dto.email.toLowerCase().trim();
     const hasCode = typeof dto.code === 'string' && /^\d{6}$/.test(dto.code);
     const hasToken = typeof dto.token === 'string' && dto.token.length >= 32;
@@ -186,7 +199,9 @@ export class AuthService {
     }
 
     if (!otp) {
-      throw new UnauthorizedException('Invalid or expired code. Please request a new one.');
+      throw new UnauthorizedException(
+        'Invalid or expired code. Please request a new one.',
+      );
     }
 
     await this.prisma.authOtp.update({
@@ -229,7 +244,11 @@ export class AuthService {
       },
     });
 
-    const accessToken = await this.generateAccessToken(updated!.id, updated!.email, updated!.role);
+    const accessToken = await this.generateAccessToken(
+      updated!.id,
+      updated!.email,
+      updated!.role,
+    );
 
     return {
       user: {
@@ -272,10 +291,15 @@ export class AuthService {
     return { ...rest, hasPassword };
   }
 
-  async sendVerificationOtp(email: string, requireUnverifiedUser = false): Promise<void> {
+  async sendVerificationOtp(
+    email: string,
+    requireUnverifiedUser = false,
+  ): Promise<void> {
     const { otpEmailVerificationEnabled } = await this.settings.getPublic();
     if (!otpEmailVerificationEnabled) {
-      throw new BadRequestException('Email verification codes are disabled on this system.');
+      throw new BadRequestException(
+        'Email verification codes are disabled on this system.',
+      );
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -285,7 +309,9 @@ export class AuthService {
         where: { email: normalizedEmail },
       });
       if (!user || user.emailVerifiedAt) {
-        throw new UnauthorizedException('No pending verification found for this email');
+        throw new UnauthorizedException(
+          'No pending verification found for this email',
+        );
       }
     }
 
@@ -335,7 +361,11 @@ export class AuthService {
     await this.mailer.sendInvite(normalizedEmail, code, inviterName);
   }
 
-  private async generateAccessToken(userId: string, email: string, role: string) {
+  private async generateAccessToken(
+    userId: string,
+    email: string,
+    role: string,
+  ) {
     const payload = { sub: userId, email, role };
     const expiresIn = this.config.get<number>('JWT_EXPIRATION') ?? 604800;
     return this.jwt.signAsync(payload, { expiresIn });

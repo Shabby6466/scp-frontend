@@ -35,7 +35,9 @@ export class AnalyticsService {
     }
     if (user.role === UserRole.BRANCH_DIRECTOR) {
       if (!user.branchId) {
-        throw new ForbiddenException('Branch director has no branch assignment');
+        throw new ForbiddenException(
+          'Branch director has no branch assignment',
+        );
       }
       return { kind: 'branch', branchId: user.branchId };
     }
@@ -53,44 +55,20 @@ export class AnalyticsService {
       case 'global':
         return Prisma.sql`TRUE`;
       case 'school':
-        return Prisma.sql`(
-          EXISTS (
-            SELECT 1 FROM "Child" ch
-            INNER JOIN "Branch" b ON b.id = ch."branchId"
-            WHERE ch.id = d."childId" AND b."schoolId" = ${scope.schoolId}
-          )
-          OR EXISTS (
-            SELECT 1 FROM "User" u
-            INNER JOIN "Branch" b ON b.id = u."branchId"
-            WHERE u.id = d."staffId" AND b."schoolId" = ${scope.schoolId}
-          )
-          OR EXISTS (
-            SELECT 1 FROM "Branch" b
-            WHERE b.id = d."branchId" AND b."schoolId" = ${scope.schoolId}
-          )
+        return Prisma.sql`EXISTS (
+          SELECT 1 FROM "User" owner
+          INNER JOIN "Branch" b ON b.id = owner."branchId"
+          WHERE owner.id = d."ownerUserId" AND b."schoolId" = ${scope.schoolId}
         )`;
       case 'teacher':
         return Prisma.sql`EXISTS (
-            SELECT 1 FROM "Child" ch
-            WHERE ch.id = d."childId" AND ch."branchId" = ${scope.branchId}
-          )`;
+          SELECT 1 FROM "User" owner
+          WHERE owner.id = d."ownerUserId" AND owner."branchId" = ${scope.branchId}
+        )`;
       case 'branch':
-        return Prisma.sql`(
-          EXISTS (
-            SELECT 1 FROM "Child" ch
-            WHERE ch.id = d."childId" AND ch."branchId" = ${scope.branchId}
-          )
-          OR EXISTS (
-            SELECT 1 FROM "User" u
-            WHERE u.id = d."staffId" AND u."branchId" = ${scope.branchId}
-          )
-          OR (
-            d."branchId" = ${scope.branchId}
-            AND EXISTS (
-              SELECT 1 FROM "DocumentType" dt
-              WHERE dt.id = d."documentTypeId" AND dt.category::text = 'FACILITY'
-            )
-          )
+        return Prisma.sql`EXISTS (
+          SELECT 1 FROM "User" owner
+          WHERE owner.id = d."ownerUserId" AND owner."branchId" = ${scope.branchId}
         )`;
       default:
         return Prisma.sql`FALSE`;
@@ -103,7 +81,8 @@ export class AnalyticsService {
   }
 
   private dateTruncRaw(bucket: FormsBucket): Prisma.Sql {
-    const unit = bucket === 'week' ? 'week' : bucket === 'month' ? 'month' : 'day';
+    const unit =
+      bucket === 'week' ? 'week' : bucket === 'month' ? 'month' : 'day';
     return Prisma.raw(`date_trunc('${unit}', d."createdAt")`);
   }
 
@@ -151,7 +130,9 @@ export class AnalyticsService {
     const scopeSql = this.scopeWhereSql(scope);
     const typeSql = this.typeFilter(documentTypeId);
 
-    const rows = await this.prisma.$queryRaw<{ role: UserRole; count: number }[]>(
+    const rows = await this.prisma.$queryRaw<
+      { role: UserRole; count: number }[]
+    >(
       Prisma.sql`
       SELECT u.role, COUNT(*)::int AS count
       FROM "Document" d

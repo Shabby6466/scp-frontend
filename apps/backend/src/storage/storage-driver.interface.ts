@@ -15,5 +15,8 @@ export interface StorageDriver {
     contentType: string,
     expiresInSeconds?: number,
   ): Promise<PresignedUploadResult>;
-  createPresignedDownloadUrl(key: string, expiresInSeconds?: number): Promise<string>;
+  createPresignedDownloadUrl(
+    key: string,
+    expiresInSeconds?: number,
+  ): Promise<string>;
 }

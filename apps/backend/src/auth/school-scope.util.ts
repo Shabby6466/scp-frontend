@@ -1,7 +1,10 @@
 import { UserRole } from '@prisma/client';
 
 /** School owner: DIRECTOR with schoolId (not branch-scoped). */
-export function isSchoolDirector(user: { role: UserRole; schoolId: string | null }): boolean {
+export function isSchoolDirector(user: {
+  role: UserRole;
+  schoolId: string | null;
+}): boolean {
   return user.role === UserRole.DIRECTOR && user.schoolId != null;
 }
 
@@ -25,7 +28,8 @@ export function canManageBranchLikeDirector(
   branch: { id: string; schoolId: string },
 ): boolean {
   if (user.role === UserRole.ADMIN) return true;
-  if (user.role === UserRole.SCHOOL_ADMIN && user.schoolId === branch.schoolId) return true;
+  if (user.role === UserRole.SCHOOL_ADMIN && user.schoolId === branch.schoolId)
+    return true;
   if (directorOwnsBranchSchool(user, branch.schoolId)) return true;
   if (branchDirectorOwnsBranch(user, branch.id)) return true;
   return false;
@@ -37,7 +41,8 @@ export function canManageSchoolBranches(
   schoolId: string,
 ): boolean {
   if (user.role === UserRole.ADMIN) return true;
-  if (user.role === UserRole.SCHOOL_ADMIN && user.schoolId === schoolId) return true;
+  if (user.role === UserRole.SCHOOL_ADMIN && user.schoolId === schoolId)
+    return true;
   if (directorOwnsBranchSchool(user, schoolId)) return true;
   return false;
 }

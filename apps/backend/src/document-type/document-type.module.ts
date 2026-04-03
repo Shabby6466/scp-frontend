@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { DocumentTypeController } from './document-type.controller.js';
 import { DocumentTypeService } from './document-type.service.js';
-import { ChildModule } from '../child/child.module.js';
+import { MailerModule } from '../mailer/index.js';
 
 @Module({
-  imports: [ChildModule],
+  imports: [MailerModule],
   controllers: [DocumentTypeController],
   providers: [DocumentTypeService],
   exports: [DocumentTypeService],

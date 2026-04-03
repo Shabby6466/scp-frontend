@@ -10,7 +10,6 @@ import { UserModule } from './user/index.js';
 import { BranchModule } from './branch/branch.module.js';
 import { DocumentTypeModule } from './document-type/document-type.module.js';
 import { DocumentModule } from './document/index.js';
-import { ChildModule } from './child/index.js';
 import { SettingsModule } from './settings/index.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 
@@ -29,7 +28,6 @@ import { AnalyticsModule } from './analytics/analytics.module.js';
     BranchModule,
     DocumentTypeModule,
     DocumentModule,
-    ChildModule,
     SettingsModule,
     AnalyticsModule,
   ],

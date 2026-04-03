@@ -43,7 +43,12 @@ export class BranchController {
 
   @Get('schools/:schoolId/branches')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
   findAllBySchool(
     @Param('schoolId') schoolId: string,
     @CurrentUser()
@@ -70,7 +75,12 @@ export class BranchController {
 
   @Get('branches/:id/documents/recent')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
   recentDocuments(
     @Param('id') id: string,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -88,7 +98,12 @@ export class BranchController {
 
   @Get('branches/:id/compliance/people')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
   compliancePeople(
     @Param('id') id: string,
     @CurrentUser()
@@ -129,7 +144,12 @@ export class BranchController {
 
   @Patch('branches/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
   update(
     @Param('id') id: string,
     @Body() dto: UpdateBranchDto,

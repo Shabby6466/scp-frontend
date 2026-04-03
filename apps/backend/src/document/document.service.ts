@@ -3,12 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DocumentCategory, Prisma, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { canManageBranchLikeDirector } from '../auth/school-scope.util.js';
 import { PresignDto } from './dto/presign.dto.js';
 import { CompleteDocumentDto } from './dto/complete.dto.js';
+import PDFDocument from 'pdfkit';
+import { MailerService } from '../mailer/mailer.service.js';
 
 type CurrentUser = {
   id: string;
@@ -17,18 +19,24 @@ type CurrentUser = {
   branchId: string | null;
 };
 
+type EntityScope = { schoolId: string; branchId: string };
+
 @Injectable()
 export class DocumentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly mailer: MailerService,
   ) {}
 
   async presign(
     dto: PresignDto,
     user: CurrentUser,
   ): Promise<{ uploadUrl: string; s3Key: string; uploadToken?: string }> {
-    const { schoolId, branchId } = await this.resolveEntityScope(dto.category, dto.entityId, user);
+    const { schoolId, branchId } = await this.resolveOwnerScope(
+      dto.ownerUserId,
+      user,
+    );
 
     await this.prisma.documentType.findUniqueOrThrow({
       where: { id: dto.documentTypeId },
@@ -37,15 +45,13 @@ export class DocumentService {
     const s3Key = this.storage.buildDocumentKey(
       schoolId,
       branchId,
-      dto.category,
-      dto.entityId,
+      'user-doc',
+      dto.ownerUserId,
       dto.fileName,
     );
 
-    const { uploadUrl, uploadToken } = await this.storage.createPresignedUploadUrl(
-      s3Key,
-      dto.mimeType,
-    );
+    const { uploadUrl, uploadToken } =
+      await this.storage.createPresignedUploadUrl(s3Key, dto.mimeType);
 
     return uploadToken !== undefined
       ? { uploadUrl, s3Key, uploadToken }
@@ -53,11 +59,7 @@ export class DocumentService {
   }
 
   async complete(dto: CompleteDocumentDto, user: CurrentUser) {
-    const { schoolId, branchId } = await this.resolveEntityScope(
-      dto.category,
-      dto.entityId,
-      user,
-    );
+    await this.resolveOwnerScope(dto.ownerUserId, user);
 
     const docType = await this.prisma.documentType.findUniqueOrThrow({
       where: { id: dto.documentTypeId },
@@ -81,85 +83,174 @@ export class DocumentService {
       expiresAt = d;
     }
 
-    const data: {
-      documentTypeId: string;
-      uploadedById: string;
-      s3Key: string;
-      fileName: string;
-      mimeType: string;
-      sizeBytes: number;
-      issuedAt?: Date | null;
-      expiresAt?: Date | null;
-      childId?: string | null;
-      staffId?: string | null;
-      branchId?: string | null;
-    } = {
-      documentTypeId: dto.documentTypeId,
-      uploadedById: user.id,
-      s3Key: dto.s3Key,
-      fileName: dto.fileName,
-      mimeType: dto.mimeType,
-      sizeBytes: dto.sizeBytes,
-      issuedAt: issuedAt ?? undefined,
-      expiresAt: expiresAt ?? undefined,
-    };
+    const created = await this.prisma.document.create({
+      data: {
+        documentTypeId: dto.documentTypeId,
+        uploadedById: user.id,
+        ownerUserId: dto.ownerUserId,
+        s3Key: dto.s3Key,
+        fileName: dto.fileName,
+        mimeType: dto.mimeType,
+        sizeBytes: dto.sizeBytes,
+        issuedAt: issuedAt ?? undefined,
+        expiresAt: expiresAt ?? undefined,
+      },
+      include: {
+        documentType: {
+          select: { id: true, name: true, targetRole: true },
+        },
+      },
+    });
 
-    if (dto.category === DocumentCategory.CHILD) {
-      data.childId = dto.entityId;
-    } else if (dto.category === DocumentCategory.STAFF) {
-      data.staffId = dto.entityId;
-    } else {
-      data.branchId = dto.entityId;
+    const owner = await this.prisma.user.findUnique({
+      where: { id: dto.ownerUserId },
+      select: { email: true },
+    });
+    if (owner?.email) {
+      await this.mailer.sendDocumentUploadedNotice(
+        owner.email,
+        created.documentType.name,
+      );
     }
 
-    return this.prisma.document.create({
-      data,
-      include: {
-        documentType: { select: { id: true, name: true, category: true } },
-      },
-    });
+    return created;
   }
 
-  async listByChild(childId: string, user: CurrentUser) {
-    await this.ensureCanAccessChild(childId, user);
+  async listByOwner(ownerUserId: string, user: CurrentUser) {
+    await this.ensureCanAccessDocumentOwner(ownerUserId, user);
     return this.prisma.document.findMany({
-      where: { childId },
+      where: { ownerUserId },
       include: {
-        documentType: { select: { id: true, name: true, category: true, isMandatory: true, renewalPeriod: true } },
+        documentType: {
+          select: {
+            id: true,
+            name: true,
+            targetRole: true,
+            isMandatory: true,
+            renewalPeriod: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async listByStaff(staffId: string, user: CurrentUser) {
-    await this.ensureCanAccessStaff(staffId, user);
-    return this.prisma.document.findMany({
-      where: { staffId },
+  async getAssignedSummary(user: CurrentUser) {
+    const me = await this.prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: {
+        requiredDocTypes: {
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        },
+      },
+    });
+
+    const docs = await this.prisma.document.findMany({
+      where: { ownerUserId: user.id },
       include: {
-        documentType: { select: { id: true, name: true, category: true, isMandatory: true, renewalPeriod: true } },
+        documentType: {
+          select: {
+            id: true,
+            name: true,
+            renewalPeriod: true,
+            isMandatory: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    const latestByType = new Map<string, (typeof docs)[number]>();
+    for (const doc of docs) {
+      if (!latestByType.has(doc.documentTypeId)) {
+        latestByType.set(doc.documentTypeId, doc);
+      }
+    }
+
+    const items = me.requiredDocTypes.map((docType) => {
+      const latest = latestByType.get(docType.id) ?? null;
+      return {
+        documentType: docType,
+        latestDocument: latest,
+        remainingDays: latest?.expiresAt
+          ? Math.max(
+              0,
+              Math.ceil(
+                (latest.expiresAt.getTime() - Date.now()) /
+                  (1000 * 60 * 60 * 24),
+              ),
+            )
+          : null,
+      };
+    });
+
+    const assignedCount = items.length;
+    const uploadedCount = items.filter(
+      (item) => item.latestDocument != null,
+    ).length;
+    return {
+      assignedCount,
+      uploadedCount,
+      remainingCount: assignedCount - uploadedCount,
+      items,
+    };
   }
 
-  async listByBranchFacility(branchId: string, user: CurrentUser) {
-    await this.ensureCanAccessBranch(branchId, user);
-    return this.prisma.document.findMany({
-      where: { branchId },
-      include: {
-        documentType: { select: { id: true, name: true, category: true, isMandatory: true, renewalPeriod: true } },
+  async getPerFormDetail(
+    ownerUserId: string,
+    documentTypeId: string,
+    user: CurrentUser,
+  ) {
+    await this.ensureCanAccessDocumentOwner(ownerUserId, user);
+
+    const owner = await this.prisma.user.findUniqueOrThrow({
+      where: { id: ownerUserId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        requiredDocTypes: {
+          where: { id: documentTypeId },
+          select: {
+            id: true,
+            name: true,
+            renewalPeriod: true,
+            targetRole: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
     });
+    const assignedDocType = owner.requiredDocTypes[0] ?? null;
+
+    const documents = await this.prisma.document.findMany({
+      where: { ownerUserId, documentTypeId },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+    const latestDocument = documents[0] ?? null;
+
+    const remainingDays = latestDocument?.expiresAt
+      ? Math.ceil(
+          (latestDocument.expiresAt.getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24),
+        )
+      : null;
+
+    return {
+      owner: { id: owner.id, name: owner.name, email: owner.email },
+      documentType: assignedDocType,
+      latestDocument,
+      uploadedDate: latestDocument?.createdAt ?? null,
+      dueDate: latestDocument?.expiresAt ?? null,
+      remainingDays,
+    };
   }
 
   async verify(documentId: string, user: CurrentUser) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
       include: {
-        child: true,
-        staff: { include: { branch: true } },
-        branch: true,
+        ownerUser: { include: { branch: true } },
         documentType: true,
       },
     });
@@ -168,36 +259,36 @@ export class DocumentService {
       throw new NotFoundException('Document not found');
     }
 
-    if (doc.childId) {
-      await this.ensureCanManageBranch(doc.child!.branchId, user);
-    } else if (doc.staffId) {
-      await this.ensureCanManageStaff(doc.staffId, user);
-    } else if (doc.branchId) {
-      await this.ensureCanManageBranch(doc.branchId, user);
+    const branchId = doc.ownerUser.branchId;
+    if (branchId) {
+      await this.ensureCanManageBranch(branchId, user);
+    } else if (user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Cannot verify this document');
     }
 
     const updated = await this.prisma.document.update({
       where: { id: documentId },
       data: { verifiedAt: new Date() },
       include: {
-        documentType: { select: { id: true, name: true, category: true } },
+        documentType: {
+          select: { id: true, name: true, targetRole: true },
+        },
       },
     });
 
-    if (doc.staffId && doc.documentType.category === DocumentCategory.STAFF) {
-      await this.syncTeacherClearanceFromVerifiedDocs(doc.staffId);
+    if (
+      doc.ownerUser.role === UserRole.TEACHER &&
+      doc.documentType.targetRole === UserRole.TEACHER
+    ) {
+      await this.syncTeacherClearanceFromVerifiedDocs(doc.ownerUserId);
     }
 
     return updated;
   }
 
-  /**
-   * When CBC, SCR, and PETS (seeded staff types) are all verified for the teacher’s position,
-   * set staffClearanceActive. Aligns dashboard “active” with clearance gate from the plan backlog.
-   */
-  private async syncTeacherClearanceFromVerifiedDocs(staffId: string) {
+  private async syncTeacherClearanceFromVerifiedDocs(ownerUserId: string) {
     const staff = await this.prisma.user.findUnique({
-      where: { id: staffId },
+      where: { id: ownerUserId },
       include: { branch: true },
     });
     if (!staff?.branchId || staff.role !== UserRole.TEACHER) return;
@@ -205,7 +296,7 @@ export class DocumentService {
     const position = staff.staffPosition;
     if (!position) {
       await this.prisma.user.update({
-        where: { id: staffId },
+        where: { id: ownerUserId },
         data: { staffClearanceActive: false },
       });
       return;
@@ -216,23 +307,14 @@ export class DocumentService {
 
     const types = await this.prisma.documentType.findMany({
       where: {
-        category: DocumentCategory.STAFF,
+        targetRole: UserRole.TEACHER,
         OR: [{ schoolId: null }, { schoolId }],
       },
       select: {
         id: true,
         name: true,
         isMandatory: true,
-        appliesToPositions: true,
       },
-    });
-
-    const applicable = types.filter((dt) => {
-      if (!dt.isMandatory) return false;
-      const raw = dt.appliesToPositions as Prisma.JsonValue;
-      if (raw == null) return true;
-      if (!Array.isArray(raw) || raw.length === 0) return true;
-      return raw.includes(position);
     });
 
     const isClearanceType = (name: string) =>
@@ -240,24 +322,26 @@ export class DocumentService {
       (name.includes('SCR') && name.includes('clearance')) ||
       (name.includes('PETS') && name.includes('eligible'));
 
-    const clearanceIds = applicable
-      .filter((dt) => isClearanceType(dt.name))
+    const clearanceIds = types
+      .filter((dt) => dt.isMandatory && isClearanceType(dt.name))
       .map((dt) => dt.id);
     if (clearanceIds.length === 0) return;
 
     const verifiedDocs = await this.prisma.document.findMany({
       where: {
-        staffId,
+        ownerUserId,
         verifiedAt: { not: null },
         documentTypeId: { in: clearanceIds },
       },
       select: { documentTypeId: true },
     });
     const verifiedSet = new Set(verifiedDocs.map((d) => d.documentTypeId));
-    const allClearancesVerified = clearanceIds.every((id) => verifiedSet.has(id));
+    const allClearancesVerified = clearanceIds.every((id) =>
+      verifiedSet.has(id),
+    );
 
     await this.prisma.user.update({
-      where: { id: staffId },
+      where: { id: ownerUserId },
       data: { staffClearanceActive: allClearancesVerified },
     });
   }
@@ -265,101 +349,100 @@ export class DocumentService {
   async getDownloadUrl(documentId: string, user: CurrentUser): Promise<string> {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      include: { child: true, staff: true, branch: true },
+      select: { s3Key: true, ownerUserId: true },
     });
 
     if (!doc) {
       throw new NotFoundException('Document not found');
     }
 
-    if (doc.childId) {
-      await this.ensureCanAccessChild(doc.childId, user);
-    } else if (doc.staffId) {
-      await this.ensureCanAccessStaff(doc.staffId, user);
-    } else if (doc.branchId) {
-      await this.ensureCanAccessBranch(doc.branchId, user);
-    }
+    await this.ensureCanAccessDocumentOwner(doc.ownerUserId, user);
 
     return this.storage.createPresignedDownloadUrl(doc.s3Key);
   }
 
-  private async resolveEntityScope(
-    category: DocumentCategory,
-    entityId: string,
+  async exportPerFormPdf(
+    ownerUserId: string,
+    documentTypeId: string,
     user: CurrentUser,
-  ): Promise<{ schoolId: string; branchId: string }> {
-    if (category === DocumentCategory.CHILD) {
-      await this.ensureCanAccessChild(entityId, user);
-      const child = await this.prisma.child.findUniqueOrThrow({
-        where: { id: entityId },
-        include: { branch: true },
-      });
-      return { schoolId: child.branch.schoolId, branchId: child.branchId };
-    }
-    if (category === DocumentCategory.STAFF) {
-      await this.ensureCanAccessStaff(entityId, user);
-      const staff = await this.prisma.user.findUniqueOrThrow({
-        where: { id: entityId },
-        include: { branch: true },
-      });
-      const branchId = staff.branchId;
-      if (!branchId) throw new ForbiddenException('Staff must have a branch');
-      const branch = staff.branch ?? await this.prisma.branch.findUniqueOrThrow({ where: { id: branchId } });
-      return { schoolId: branch.schoolId, branchId: branch.id };
-    }
-    // FACILITY
-    await this.ensureCanAccessBranch(entityId, user);
-    const branch = await this.prisma.branch.findUniqueOrThrow({
-      where: { id: entityId },
+  ) {
+    const detail = await this.getPerFormDetail(
+      ownerUserId,
+      documentTypeId,
+      user,
+    );
+    const uploadedAtLabel = detail.uploadedDate
+      ? new Date(detail.uploadedDate).toISOString().slice(0, 10)
+      : 'Not uploaded';
+    const dueDateLabel = detail.dueDate
+      ? new Date(detail.dueDate).toISOString().slice(0, 10)
+      : 'N/A';
+    const remainingLabel =
+      detail.remainingDays == null ? 'N/A' : `${detail.remainingDays} day(s)`;
+
+    const buffer = await new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 48 });
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      doc.fontSize(18).text('Document Summary');
+      doc.moveDown();
+      doc
+        .fontSize(12)
+        .text(`Document type: ${detail.documentType?.name ?? 'Unknown'}`);
+      doc.text(`Owner: ${detail.owner.name ?? detail.owner.email}`);
+      doc.text(`Uploaded date: ${uploadedAtLabel}`);
+      doc.text(`Due date: ${dueDateLabel}`);
+      doc.text(`Remaining time: ${remainingLabel}`);
+      doc.end();
     });
+    const fileName = `document-${ownerUserId}-${documentTypeId}.pdf`;
+    return { buffer, fileName };
+  }
+
+  private async resolveOwnerScope(
+    ownerUserId: string,
+    user: CurrentUser,
+  ): Promise<EntityScope> {
+    await this.ensureCanAccessDocumentOwner(ownerUserId, user);
+    const owner = await this.prisma.user.findUniqueOrThrow({
+      where: { id: ownerUserId },
+      include: { branch: true },
+    });
+    const branchId = owner.branchId;
+    if (!branchId)
+      throw new ForbiddenException('Owner must belong to a branch');
+    const branch =
+      owner.branch ??
+      (await this.prisma.branch.findUniqueOrThrow({ where: { id: branchId } }));
     return { schoolId: branch.schoolId, branchId: branch.id };
   }
 
-  private async ensureCanAccessChild(childId: string, user: CurrentUser) {
+  private async ensureCanAccessDocumentOwner(
+    ownerUserId: string,
+    user: CurrentUser,
+  ) {
     if (user.role === UserRole.ADMIN) return;
+    if (user.id === ownerUserId) return;
 
-    const child = await this.prisma.child.findUniqueOrThrow({
-      where: { id: childId },
+    const owner = await this.prisma.user.findUniqueOrThrow({
+      where: { id: ownerUserId },
       include: { branch: true },
     });
 
-    if (user.role === UserRole.STUDENT) {
-      if (child.studentUserId !== user.id) {
-        throw new ForbiddenException('Cannot access this child');
-      }
-      return;
-    }
+    const branchId = owner.branchId;
+    if (!branchId) throw new ForbiddenException('User has no branch');
 
-    if (user.role === UserRole.TEACHER) {
-      if (user.branchId !== child.branchId) {
-        throw new ForbiddenException('Cannot access this child');
-      }
-      return;
-    }
-
-    if (canManageBranchLikeDirector(user, child.branch)) return;
-
-    throw new ForbiddenException('Cannot access this child');
-  }
-
-  private async ensureCanAccessStaff(staffId: string, user: CurrentUser) {
-    if (user.role === UserRole.ADMIN) return;
-    if (user.id === staffId) return; // own staff file
-
-    const staff = await this.prisma.user.findUniqueOrThrow({
-      where: { id: staffId },
-      include: { branch: true },
-    });
-
-    const branchId = staff.branchId;
-    if (!branchId) throw new ForbiddenException('Staff has no branch');
-
-    const branch = staff.branch ?? (await this.prisma.branch.findUnique({ where: { id: branchId } }));
-    if (!branch) throw new ForbiddenException('Staff branch not found');
+    const branch =
+      owner.branch ??
+      (await this.prisma.branch.findUnique({ where: { id: branchId } }));
+    if (!branch) throw new ForbiddenException('Branch not found');
 
     if (canManageBranchLikeDirector(user, branch)) return;
 
-    throw new ForbiddenException('Cannot access this staff');
+    throw new ForbiddenException('Cannot access this document');
   }
 
   private async ensureCanManageBranch(branchId: string, user: CurrentUser) {
@@ -372,44 +455,5 @@ export class DocumentService {
     if (canManageBranchLikeDirector(user, branch)) return;
 
     throw new ForbiddenException('Cannot manage this branch');
-  }
-
-  private async ensureCanManageStaff(staffId: string, user: CurrentUser) {
-    if (user.role === UserRole.ADMIN) return;
-
-    const staff = await this.prisma.user.findUniqueOrThrow({
-      where: { id: staffId },
-      include: { branch: true },
-    });
-
-    const branchId = staff.branchId;
-    if (!branchId) throw new ForbiddenException('Staff has no branch');
-
-    const branch = staff.branch ?? (await this.prisma.branch.findUniqueOrThrow({ where: { id: branchId } }));
-
-    if (canManageBranchLikeDirector(user, branch)) return;
-
-    throw new ForbiddenException('Cannot manage this staff');
-  }
-
-  private async ensureCanAccessBranch(branchId: string, user: CurrentUser) {
-    if (user.role === UserRole.ADMIN) return;
-
-    const branch = await this.prisma.branch.findUniqueOrThrow({
-      where: { id: branchId },
-    });
-
-    if (user.role === UserRole.TEACHER && user.branchId === branchId) return;
-
-    if (user.role === UserRole.STUDENT) {
-      const enrolled = await this.prisma.child.findFirst({
-        where: { branchId, studentUserId: user.id },
-      });
-      if (enrolled) return;
-    }
-
-    if (canManageBranchLikeDirector(user, branch)) return;
-
-    throw new ForbiddenException('Cannot access this branch');
   }
 }

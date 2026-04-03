@@ -40,7 +40,7 @@ export interface BranchRecentDocument {
 
 export interface ComplianceStudentRow {
   kind: 'STUDENT';
-  childId: string;
+  userId: string;
   name: string;
   guardianName: string | null;
   guardianEmail: string | null;

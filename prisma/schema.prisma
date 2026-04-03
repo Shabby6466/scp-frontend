@@ -7,8 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ───────────────────────────────────────────────────────────
-
 enum UserRole {
   ADMIN
   SCHOOL_ADMIN
@@ -25,160 +23,161 @@ enum StaffPosition {
   PARAPROFESSIONAL
 }
 
-enum DocumentCategory {
-  CHILD
-  STAFF
-  FACILITY
-}
-
 enum RenewalPeriod {
   NONE
   ANNUAL
   BIENNIAL
 }
 
-// ─── User ────────────────────────────────────────────────────────────
-
 model User {
-  id                   String         @id @default(cuid())
-  email                String         @unique
+  id                   String             @id @default(cuid())
+  email                String             @unique
   password             String?
   name                 String?
   role                 UserRole
+  authorities          UserRole[]         @default([])
   schoolId             String?
   branchId             String?
+  assignedById         String?
   /** Teacher position at branch (no separate StaffProfile row). */
   staffPosition        StaffPosition?
   /** Cleared for active teaching after key documents verified. */
-  staffClearanceActive Boolean        @default(false)
+  staffClearanceActive Boolean            @default(false)
   emailVerifiedAt      DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
-  school             School?    @relation(fields: [schoolId], references: [id], onDelete: SetNull)
-  branch             Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  studentEnrollment  Child?     @relation("StudentEnrollment")
-  uploadedDocuments  Document[] @relation("UploadedBy")
-  staffDocuments     Document[] @relation("StaffDocuments")
+  school               School?            @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  branch               Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  assignedBy           User?              @relation("AuthorityAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  assignedUsers        User[]             @relation("AuthorityAssignedBy")
+  uploadedDocuments    Document[]         @relation("UploadedBy")
+  ownerDocuments       Document[]         @relation("DocumentOwner")
+  createdDocumentTypes DocumentType[] @relation("DocumentTypeCreator")
+  requiredDocTypes      DocumentType[]     @relation("UserRequiredDocTypes")
+  directorProfile       DirectorProfile?
+  branchDirectorProfile BranchDirectorProfile?
+  teacherProfile        TeacherProfile?
+  studentProfile        StudentProfile?
 
   @@index([role])
   @@index([schoolId])
   @@index([branchId])
+  @@index([assignedById])
 }
 
-// ─── School ──────────────────────────────────────────────────────────
-
 model School {
-  id            String         @id @default(cuid())
+  id            String       @id @default(cuid())
   name          String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   users         User[]
   branches      Branch[]
   documentTypes DocumentType[]
 }
 
-// ─── Branch ──────────────────────────────────────────────────────────
-
 model Branch {
-  id        String   @id @default(cuid())
-  name      String
-  schoolId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String     @id @default(cuid())
+  name       String
+  schoolId   String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
-  school    School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  users     User[]
-  children  Child[]
-  documents Document[]
+  school     School     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  users      User[]
 
   @@index([schoolId])
 }
-
-// ─── Child ────────────────────────────────────────────────────────────
-
-model Child {
-  id                String   @id @default(cuid())
-  firstName         String
-  lastName          String
-  branchId          String
-  studentUserId     String   @unique
-  guardianName      String?
-  guardianEmail     String?
-  guardianPhone     String?
-  hasAllergies      Boolean  @default(false)
-  hasAsthma         Boolean  @default(false)
-  hasDiabetes       Boolean  @default(false)
-  hasSeizures       Boolean  @default(false)
-  takesMedsAtSchool Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  branch    Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  student   User       @relation("StudentEnrollment", fields: [studentUserId], references: [id], onDelete: Restrict)
-  documents Document[]
-
-  @@index([branchId])
-}
-
-// ─── DocumentType ─────────────────────────────────────────────────────
 
 model DocumentType {
   id                 String           @id @default(cuid())
   name               String
-  category           DocumentCategory
+  targetRole         UserRole
   isMandatory        Boolean          @default(true)
   renewalPeriod      RenewalPeriod    @default(NONE)
-  appliesToPositions Json?
-  isConditional      Boolean          @default(false)
-  conditionField     String?
   sortOrder          Int              @default(0)
   schoolId           String?
+  createdById        String
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  school    School?    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  documents Document[]
+  school             School?          @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  createdBy          User             @relation("DocumentTypeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  requiredUsers      User[]           @relation("UserRequiredDocTypes")
+  documents          Document[]
 
-  @@index([category])
   @@index([schoolId])
+  @@index([targetRole])
+  @@index([createdById])
 }
 
-// ─── Document ────────────────────────────────────────────────────────
-
 model Document {
-  id             String    @id @default(cuid())
+  id             String           @id @default(cuid())
+  ownerUserId    String
   documentTypeId String
-  childId        String?
-  staffId        String?
-  branchId       String?
   uploadedById   String
   s3Key          String
   fileName       String
   mimeType       String
   sizeBytes      Int
-  /** Date shown as issuance / issue date (optional for legacy rows). */
   issuedAt       DateTime?
   expiresAt      DateTime?
   verifiedAt     DateTime?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime         @default(now())
 
-  documentType DocumentType @relation(fields: [documentTypeId], references: [id], onDelete: Cascade)
-  child        Child?       @relation(fields: [childId], references: [id], onDelete: Cascade)
-  staff        User?        @relation("StaffDocuments", fields: [staffId], references: [id], onDelete: Cascade)
-  branch       Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  uploadedBy   User         @relation("UploadedBy", fields: [uploadedById], references: [id], onDelete: Cascade)
+  ownerUser      User             @relation("DocumentOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  uploadedBy     User             @relation("UploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  documentType   DocumentType     @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
 
-  @@index([childId])
-  @@index([staffId])
-  @@index([branchId])
+  @@index([ownerUserId])
   @@index([documentTypeId])
+  @@index([uploadedById])
   @@index([expiresAt])
   @@index([createdAt])
 }
 
-// ─── App config (singleton) ─────────────────────────────────────────
+model DirectorProfile {
+  userId      String   @id
+  officePhone String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BranchDirectorProfile {
+  userId           String   @id
+  branchStartDate  DateTime?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TeacherProfile {
+  userId          String   @id
+  subjectArea     String?
+  employeeCode    String?
+  joiningDate     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StudentProfile {
+  userId        String   @id
+  rollNumber    String?
+  guardianName  String?
+  guardianPhone String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 
 model AppConfig {
   id                          String   @id @default("default")
@@ -186,8 +185,6 @@ model AppConfig {
   selfRegistrationEnabled     Boolean  @default(true)
   updatedAt                   DateTime @updatedAt
 }
-
-// ─── AuthOtp ────────────────────────────────────────────────────────
 
 model AuthOtp {
   id         String    @id @default(cuid())

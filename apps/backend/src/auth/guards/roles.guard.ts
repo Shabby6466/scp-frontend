@@ -18,10 +18,10 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
@@ -42,10 +42,15 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    if (role === UserRole.SCHOOL_ADMIN && requiredRoles.includes(UserRole.DIRECTOR)) {
+    if (
+      role === UserRole.SCHOOL_ADMIN &&
+      requiredRoles.includes(UserRole.DIRECTOR)
+    ) {
       return true;
     }
 
-    throw new ForbiddenException(`Requires one of: ${requiredRoles.join(', ')}`);
+    throw new ForbiddenException(
+      `Requires one of: ${requiredRoles.join(', ')}`,
+    );
   }
 }

@@ -1,13 +1,9 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { DocumentCategory } from '@prisma/client';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class PresignDto {
-  @IsEnum(DocumentCategory)
-  category!: DocumentCategory;
-
   @IsString()
   @IsNotEmpty()
-  entityId!: string; // childId, staffId (userId), or branchId
+  ownerUserId!: string;
 
   @IsString()
   @IsNotEmpty()

@@ -28,7 +28,10 @@ export default function StaffDocumentsPage() {
   } | null>(null);
 
   const { data: documents } = useGetDocumentsByStaffQuery(teacherUserId);
-  const { data: docTypes } = useGetDocumentTypesQuery({ category: 'STAFF' });
+  const { data: docTypes } = useGetDocumentTypesQuery(
+    { schoolId: user?.schoolId ?? undefined },
+    { skip: !user?.schoolId },
+  );
   const [presign] = usePresignMutation();
   const [completeDoc] = useCompleteDocumentMutation();
   const [getDownloadUrl] = useLazyGetDownloadUrlQuery();
@@ -61,8 +64,7 @@ export default function StaffDocumentsPage() {
     setUploadingTypeId(documentTypeId);
     try {
       const { uploadUrl, s3Key, uploadToken } = await presign({
-        category: 'STAFF',
-        entityId: teacherUserId,
+        ownerUserId: teacherUserId,
         documentTypeId,
         fileName: file.name,
         mimeType: file.type || 'application/octet-stream',
@@ -73,8 +75,7 @@ export default function StaffDocumentsPage() {
       if (!res.ok) throw new Error('Upload failed');
 
       await completeDoc({
-        category: 'STAFF',
-        entityId: teacherUserId,
+        ownerUserId: teacherUserId,
         documentTypeId,
         s3Key,
         fileName: file.name,

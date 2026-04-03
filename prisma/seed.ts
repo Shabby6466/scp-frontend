@@ -1,9 +1,4 @@
-import {
-  PrismaClient,
-  UserRole,
-  StaffPosition,
-  DocumentCategory,
-} from '@prisma/client';
+import { PrismaClient, UserRole, StaffPosition } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { seedDocumentTypes } from './seed-document-types';
 
@@ -14,7 +9,6 @@ const SEED_PASSWORD = 'Admin@123456';
 
 const ADMIN_EMAIL = 'admin@schoolcompliance.com';
 
-/** Placeholder object keys for UI testing (downloads will fail without real S3). */
 const mockS3Key = (slug: string) => `seed/mock/${slug}.pdf`;
 
 /** Local date arithmetic (matches typical dev Postgres `CURRENT_DATE` with same TZ). */
@@ -34,12 +28,16 @@ function daysFromToday(days: number): Date {
 
 async function wipeDatabase() {
   await prisma.document.deleteMany();
-  await prisma.child.deleteMany();
+  await prisma.directorProfile.deleteMany();
+  await prisma.branchDirectorProfile.deleteMany();
+  await prisma.teacherProfile.deleteMany();
+  await prisma.studentProfile.deleteMany();
   await prisma.authOtp.deleteMany();
+  await prisma.documentType.deleteMany();
   await prisma.user.deleteMany();
   await prisma.branch.deleteMany();
   await prisma.school.deleteMany();
-  await prisma.documentType.deleteMany();
+  await prisma.appConfig.deleteMany();
 }
 
 async function main() {
@@ -55,9 +53,6 @@ async function main() {
     },
     update: {},
   });
-
-  console.log('Seeding document types…');
-  await seedDocumentTypes(prisma);
 
   const hashedPassword = await bcrypt.hash(SEED_PASSWORD, 12);
 
@@ -87,6 +82,13 @@ async function main() {
       password: hashedPassword,
       name: 'Platform Admin',
       role: UserRole.ADMIN,
+      authorities: [
+        UserRole.DIRECTOR,
+        UserRole.SCHOOL_ADMIN,
+        UserRole.BRANCH_DIRECTOR,
+        UserRole.TEACHER,
+        UserRole.STUDENT,
+      ],
       emailVerifiedAt: new Date(),
     },
   });
@@ -98,6 +100,8 @@ async function main() {
       name: 'Morgan Chen',
       role: UserRole.DIRECTOR,
       schoolId: schoolA.id,
+      assignedById: admin.id,
+      authorities: [UserRole.BRANCH_DIRECTOR, UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -109,6 +113,8 @@ async function main() {
       name: 'Jordan Ellis',
       role: UserRole.DIRECTOR,
       schoolId: schoolB.id,
+      assignedById: admin.id,
+      authorities: [UserRole.BRANCH_DIRECTOR, UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -120,6 +126,8 @@ async function main() {
       name: 'Sam Rivera',
       role: UserRole.SCHOOL_ADMIN,
       schoolId: schoolA.id,
+      assignedById: admin.id,
+      authorities: [UserRole.BRANCH_DIRECTOR, UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -131,6 +139,8 @@ async function main() {
       name: 'Taylor Brooks',
       role: UserRole.SCHOOL_ADMIN,
       schoolId: schoolB.id,
+      assignedById: admin.id,
+      authorities: [UserRole.BRANCH_DIRECTOR, UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -143,6 +153,8 @@ async function main() {
       role: UserRole.BRANCH_DIRECTOR,
       schoolId: schoolA.id,
       branchId: branchA1.id,
+      assignedById: directorA.id,
+      authorities: [UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -155,6 +167,8 @@ async function main() {
       role: UserRole.BRANCH_DIRECTOR,
       schoolId: schoolA.id,
       branchId: branchA2.id,
+      assignedById: directorA.id,
+      authorities: [UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -167,6 +181,8 @@ async function main() {
       role: UserRole.BRANCH_DIRECTOR,
       schoolId: schoolB.id,
       branchId: branchB1.id,
+      assignedById: directorB.id,
+      authorities: [UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -179,6 +195,8 @@ async function main() {
       role: UserRole.BRANCH_DIRECTOR,
       schoolId: schoolB.id,
       branchId: branchB2.id,
+      assignedById: directorB.id,
+      authorities: [UserRole.TEACHER, UserRole.STUDENT],
       emailVerifiedAt: new Date(),
     },
   });
@@ -191,6 +209,7 @@ async function main() {
       role: UserRole.TEACHER,
       schoolId: schoolA.id,
       branchId: branchA1.id,
+      assignedById: bdA1.id,
       staffPosition: StaffPosition.LEAD_TEACHER,
       staffClearanceActive: true,
       emailVerifiedAt: new Date(),
@@ -205,6 +224,7 @@ async function main() {
       role: UserRole.TEACHER,
       schoolId: schoolA.id,
       branchId: branchA1.id,
+      assignedById: bdA1.id,
       staffPosition: StaffPosition.ASSISTANT_TEACHER,
       staffClearanceActive: false,
       emailVerifiedAt: new Date(),
@@ -219,6 +239,7 @@ async function main() {
       role: UserRole.TEACHER,
       schoolId: schoolA.id,
       branchId: branchA2.id,
+      assignedById: bdA2.id,
       staffPosition: StaffPosition.LEAD_TEACHER,
       staffClearanceActive: true,
       emailVerifiedAt: new Date(),
@@ -233,6 +254,7 @@ async function main() {
       role: UserRole.TEACHER,
       schoolId: schoolB.id,
       branchId: branchB1.id,
+      assignedById: bdB1.id,
       staffPosition: StaffPosition.ED_DIRECTOR,
       staffClearanceActive: true,
       emailVerifiedAt: new Date(),
@@ -247,148 +269,173 @@ async function main() {
       role: UserRole.TEACHER,
       schoolId: schoolB.id,
       branchId: branchB2.id,
+      assignedById: bdB2.id,
       staffPosition: StaffPosition.PARAPROFESSIONAL,
       staffClearanceActive: false,
       emailVerifiedAt: new Date(),
     },
   });
 
-  async function createStudentWithChild(
-    email: string,
-    firstName: string,
-    lastName: string,
-    branchId: string,
-    schoolId: string,
-    health: {
-      hasAllergies?: boolean;
-      hasAsthma?: boolean;
-      takesMedsAtSchool?: boolean;
-    },
-  ) {
-    const student = await prisma.user.create({
+  const students = await Promise.all([
+    prisma.user.create({
       data: {
-        email,
+        email: 'student.alex@demo.local',
         password: hashedPassword,
-        name: `${firstName} ${lastName}`,
+        name: 'Alex Martinez',
         role: UserRole.STUDENT,
-        schoolId,
-        branchId,
+        schoolId: schoolA.id,
+        branchId: branchA1.id,
+        assignedById: bdA1.id,
         emailVerifiedAt: new Date(),
       },
-    });
-    const child = await prisma.child.create({
+    }),
+    prisma.user.create({
       data: {
-        firstName,
-        lastName,
-        branchId,
-        studentUserId: student.id,
-        guardianName: `${firstName}'s Guardian`,
-        guardianEmail: `guardian.${email}`,
-        hasAllergies: health.hasAllergies ?? false,
-        hasAsthma: health.hasAsthma ?? false,
-        takesMedsAtSchool: health.takesMedsAtSchool ?? false,
+        email: 'student.sam@demo.local',
+        password: hashedPassword,
+        name: 'Sam Okonkwo',
+        role: UserRole.STUDENT,
+        schoolId: schoolA.id,
+        branchId: branchA1.id,
+        assignedById: bdA1.id,
+        emailVerifiedAt: new Date(),
       },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'student.jordan@demo.local',
+        password: hashedPassword,
+        name: 'Jordan Lee',
+        role: UserRole.STUDENT,
+        schoolId: schoolA.id,
+        branchId: branchA2.id,
+        assignedById: bdA2.id,
+        emailVerifiedAt: new Date(),
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'student.river@demo.local',
+        password: hashedPassword,
+        name: 'River Singh',
+        role: UserRole.STUDENT,
+        schoolId: schoolB.id,
+        branchId: branchB1.id,
+        assignedById: bdB1.id,
+        emailVerifiedAt: new Date(),
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'student.skye@demo.local',
+        password: hashedPassword,
+        name: 'Skye Brown',
+        role: UserRole.STUDENT,
+        schoolId: schoolB.id,
+        branchId: branchB2.id,
+        assignedById: bdB2.id,
+        emailVerifiedAt: new Date(),
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'student.lia@demo.local',
+        password: hashedPassword,
+        name: 'Lia Reyes',
+        role: UserRole.STUDENT,
+        schoolId: schoolA.id,
+        branchId: branchA1.id,
+        assignedById: bdA1.id,
+        emailVerifiedAt: new Date(),
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'student.milo@demo.local',
+        password: hashedPassword,
+        name: 'Milo Chen',
+        role: UserRole.STUDENT,
+        schoolId: schoolB.id,
+        branchId: branchB1.id,
+        assignedById: bdB1.id,
+        emailVerifiedAt: new Date(),
+      },
+    }),
+    prisma.user.create({
+      data: {
+        email: 'student.zoe@demo.local',
+        password: hashedPassword,
+        name: 'Zoe Adams',
+        role: UserRole.STUDENT,
+        schoolId: schoolB.id,
+        branchId: branchB2.id,
+        assignedById: bdB2.id,
+        emailVerifiedAt: new Date(),
+      },
+    }),
+  ]);
+
+  console.log('Seeding document types…');
+  await seedDocumentTypes({
+    prisma,
+    createdById: directorA.id,
+    schoolId: schoolA.id,
+  });
+  await seedDocumentTypes({
+    prisma,
+    createdById: directorB.id,
+    schoolId: schoolB.id,
+  });
+
+  const allDocTypes = await prisma.documentType.findMany({
+    orderBy: [{ schoolId: 'asc' }, { sortOrder: 'asc' }],
+  });
+  const teacherTypes = allDocTypes.filter((d) => d.targetRole === UserRole.TEACHER);
+  const studentTypes = allDocTypes.filter((d) => d.targetRole === UserRole.STUDENT);
+  const branchDirectorTypes = allDocTypes.filter(
+    (d) => d.targetRole === UserRole.BRANCH_DIRECTOR,
+  );
+
+  await prisma.user.update({
+    where: { id: teacherA1a.id },
+    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+  });
+  await prisma.user.update({
+    where: { id: teacherA1b.id },
+    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+  });
+  await prisma.user.update({
+    where: { id: teacherA2.id },
+    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+  });
+  await prisma.user.update({
+    where: { id: teacherB1.id },
+    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+  });
+  await prisma.user.update({
+    where: { id: teacherB2.id },
+    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+  });
+
+  for (const student of students) {
+    await prisma.user.update({
+      where: { id: student.id },
+      data: { requiredDocTypes: { connect: studentTypes.map((d) => ({ id: d.id })) } },
     });
-    return { student, child };
   }
 
-  const { student: studentAlexUser, child: child1 } = await createStudentWithChild(
-    'student.alex@demo.local',
-    'Alex',
-    'Martinez',
-    branchA1.id,
-    schoolA.id,
-    { hasAllergies: true, takesMedsAtSchool: true },
-  );
-
-  const { child: child2 } = await createStudentWithChild(
-    'student.sam@demo.local',
-    'Sam',
-    'Okonkwo',
-    branchA1.id,
-    schoolA.id,
-    { hasAsthma: true },
-  );
-
-  const { child: child3 } = await createStudentWithChild(
-    'student.jordan@demo.local',
-    'Jordan',
-    'Lee',
-    branchA2.id,
-    schoolA.id,
-    {},
-  );
-
-  const { child: child4 } = await createStudentWithChild(
-    'student.river@demo.local',
-    'River',
-    'Singh',
-    branchB1.id,
-    schoolB.id,
-    { hasAllergies: true },
-  );
-
-  const { child: child5 } = await createStudentWithChild(
-    'student.skye@demo.local',
-    'Skye',
-    'Brown',
-    branchB2.id,
-    schoolB.id,
-    {},
-  );
-
-  const { child: child6 } = await createStudentWithChild(
-    'student.lia@demo.local',
-    'Lia',
-    'Reyes',
-    branchA1.id,
-    schoolA.id,
-    {},
-  );
-
-  const { child: child7 } = await createStudentWithChild(
-    'student.milo@demo.local',
-    'Milo',
-    'Chen',
-    branchB1.id,
-    schoolB.id,
-    { hasAsthma: true },
-  );
-
-  const { child: child8 } = await createStudentWithChild(
-    'student.zoe@demo.local',
-    'Zoe',
-    'Adams',
-    branchB2.id,
-    schoolB.id,
-    {},
-  );
-
-  const allChildTypes = await prisma.documentType.findMany({
-    where: { category: DocumentCategory.CHILD },
-    orderBy: { sortOrder: 'asc' },
-  });
-  const allStaffTypes = await prisma.documentType.findMany({
-    where: { category: DocumentCategory.STAFF },
-    orderBy: { sortOrder: 'asc' },
-  });
-  const allFacilityTypes = await prisma.documentType.findMany({
-    where: { category: DocumentCategory.FACILITY },
-    orderBy: { sortOrder: 'asc' },
-  });
-
-  const schoolAChildren = [child1, child2, child3, child6];
-  const schoolBChildren = [child4, child5, child7, child8];
-  const uploadersA = [teacherA1a, teacherA1b, bdA1, directorA, schoolAdminA, admin] as const;
-  const uploadersB = [teacherB1, teacherB2, bdB1, bdB2, directorB, schoolAdminB, admin] as const;
+  for (const bd of [bdA1, bdA2, bdB1, bdB2]) {
+    await prisma.user.update({
+      where: { id: bd.id },
+      data: { requiredDocTypes: { connect: branchDirectorTypes.map((d) => ({ id: d.id })) } },
+    });
+  }
 
   let docCount = 0;
 
   async function addDocument(p: {
     documentTypeId: string;
-    childId?: string;
-    staffId?: string;
-    branchId?: string;
+    ownerUserId: string;
     uploadedById: string;
     createdAt: Date;
     issuedAt?: Date | null;
@@ -396,13 +443,11 @@ async function main() {
     verifiedAt?: Date | null;
     fileName: string;
   }) {
-    const keySlug = `${p.childId ?? p.staffId ?? p.branchId}-${p.documentTypeId}-${p.createdAt.getTime()}`;
+    const keySlug = `${p.ownerUserId}-${p.documentTypeId}-${p.createdAt.getTime()}`;
     await prisma.document.create({
       data: {
         documentTypeId: p.documentTypeId,
-        childId: p.childId ?? null,
-        staffId: p.staffId ?? null,
-        branchId: p.branchId ?? null,
+        ownerUserId: p.ownerUserId,
         uploadedById: p.uploadedById,
         s3Key: mockS3Key(keySlug),
         fileName: p.fileName,
@@ -422,155 +467,45 @@ async function main() {
   const expNearSoon = daysFromToday(5);
   const expActiveFar = daysFromToday(200);
 
-  // Dashboard default is “last 7 days” — dense uploads with varied uploader roles.
-  for (let day = 0; day < 7; day++) {
-    for (let n = 0; n < 6; n++) {
-      const ch = schoolAChildren[(day + n) % schoolAChildren.length]!;
-      const dt = allChildTypes[(day * 3 + n) % allChildTypes.length]!;
-      const up = uploadersA[(day + n) % uploadersA.length]!;
-      const ex =
-        n % 5 === 0 ? expNearSoon : n % 5 === 1 ? expExpired : n % 5 === 2 ? expActiveFar : n % 5 === 3 ? expNear : null;
-      await addDocument({
-        documentTypeId: dt.id,
-        childId: ch.id,
-        uploadedById: up.id,
-        createdAt: daysAgo(day, 9 + n, (n * 7) % 60),
-        expiresAt: ex,
-        verifiedAt: n % 2 === 0 ? daysAgo(day, 10) : null,
-        fileName: `child_${ch.firstName}_${n}.pdf`,
-      });
-    }
-    for (let n = 0; n < 4; n++) {
-      const ch = schoolBChildren[(day + n) % schoolBChildren.length]!;
-      const dt = allChildTypes[(day + n + 5) % allChildTypes.length]!;
-      const up = uploadersB[(day + n * 2) % uploadersB.length]!;
-      await addDocument({
-        documentTypeId: dt.id,
-        childId: ch.id,
-        uploadedById: up.id,
-        createdAt: daysAgo(day, 11 + n, 15 + n * 11),
-        expiresAt: n % 3 === 0 ? expNear : n % 3 === 1 ? null : expActiveFar,
-        verifiedAt: daysAgo(Math.max(0, day - 1), 16),
-        fileName: `child_${ch.firstName}_${day}_${n}.pdf`,
-      });
-    }
-  }
-
-  // Older activity so “30 days” and week/month buckets stay interesting.
-  for (let day = 7; day < 32; day++) {
-    if (day % 2 !== 0) continue;
-    const ch = schoolAChildren[day % schoolAChildren.length]!;
-    const dt = allChildTypes[day % allChildTypes.length]!;
-    await addDocument({
-      documentTypeId: dt.id,
-      childId: ch.id,
-      uploadedById: teacherA1a.id,
-      createdAt: daysAgo(day, 14, 20),
-      expiresAt: day % 4 === 0 ? expExpired : null,
-      verifiedAt: daysAgo(day - 1, 15),
-      fileName: `child_archive_${day}.pdf`,
-    });
-    const chB = schoolBChildren[day % schoolBChildren.length]!;
-    const dtB = allChildTypes[(day + 2) % allChildTypes.length]!;
-    await addDocument({
-      documentTypeId: dtB.id,
-      childId: chB.id,
-      uploadedById: directorB.id,
-      createdAt: daysAgo(day, 16, 45),
-      expiresAt: day % 5 === 0 ? expNear : expActiveFar,
-      fileName: `child_b_${day}.pdf`,
-    });
-  }
-
-  const teachers = [
-    teacherA1a,
-    teacherA1b,
-    teacherA2,
-    teacherB1,
-    teacherB2,
+  const owners = [bdA1, bdA2, bdB1, bdB2, teacherA1a, teacherA1b, teacherA2, teacherB1, teacherB2, ...students];
+  const uploaders = [
+    admin,
+    directorA,
+    directorB,
+    schoolAdminA,
+    schoolAdminB,
+    bdA1,
+    bdA2,
+    bdB1,
+    bdB2,
   ];
-  const staffUploaderRotation = [
-    schoolAdminA.id,
-    bdA1.id,
-    directorA.id,
-    admin.id,
-    teacherA1a.id,
-    schoolAdminB.id,
-    bdB1.id,
-    directorB.id,
-  ];
-
-  for (const t of teachers) {
-    const slice = allStaffTypes.slice(0, 12);
-    let i = 0;
-    for (const dt of slice) {
-      const created = daysAgo((i % 28) + 1, 10 + (i % 8), (i * 5) % 55);
-      const uploader = staffUploaderRotation[i % staffUploaderRotation.length]!;
-      const needsRenewal = dt.renewalPeriod !== 'NONE';
-      await addDocument({
-        documentTypeId: dt.id,
-        staffId: t.id,
-        uploadedById: i % 6 === 0 ? t.id : uploader,
-        createdAt: created,
-        expiresAt: needsRenewal
-          ? i % 4 === 0
-            ? expExpired
-            : i % 4 === 1
-              ? expNear
-              : expActiveFar
-          : null,
-        verifiedAt: i % 3 !== 0 ? daysAgo(2, 11) : null,
-        fileName: `staff_${t.email.split('@')[0]}_${i}.pdf`,
-      });
-      i++;
-    }
-  }
-
-  const facilityUploaders = [
-    { branch: branchA1, ids: [admin.id, bdA1.id, schoolAdminA.id, directorA.id] },
-    { branch: branchA2, ids: [bdA2.id, schoolAdminA.id, admin.id] },
-    { branch: branchB1, ids: [bdB1.id, schoolAdminB.id, directorB.id] },
-    { branch: branchB2, ids: [bdB2.id, schoolAdminB.id, admin.id] },
-  ] as const;
-
-  let fi = 0;
-  for (const { branch, ids } of facilityUploaders) {
-    for (const dt of allFacilityTypes.slice(0, 12)) {
-      const dayOff = (fi % 25) + 1;
-      const exp =
-        dt.name.includes('Permit') || dt.name.includes('Fire')
-          ? fi % 3 === 0
-            ? expNear
-            : fi % 3 === 1
-              ? expExpired
-              : expActiveFar
-          : fi % 4 === 0
-            ? expNearSoon
-            : null;
-      await addDocument({
-        documentTypeId: dt.id,
-        branchId: branch.id,
-        uploadedById: ids[fi % ids.length]!,
-        createdAt: daysAgo(dayOff, 13 + (fi % 6), (fi * 3) % 59),
-        expiresAt: exp,
-        verifiedAt: fi % 2 === 0 ? daysAgo(Math.min(dayOff, 5), 17) : null,
-        fileName: `facility_${branch.name.replace(/\s+/g, '_')}_${dt.name.slice(0, 24).replace(/\W+/g, '_')}.pdf`,
-      });
-      fi++;
-    }
-  }
-
-  // A few student-uploaded rows (same login as child) for “Uploaded by” variety.
-  if (allChildTypes[3]) {
-    await addDocument({
-      documentTypeId: allChildTypes[3]!.id,
-      childId: child1.id,
-      uploadedById: studentAlexUser.id,
-      createdAt: daysAgo(1, 18, 22),
-      expiresAt: null,
-      verifiedAt: null,
-      fileName: 'child_alex_field_trip.pdf',
+  const ownerTypeMap = new Map<string, string[]>();
+  for (const owner of owners) {
+    const assigned = await prisma.user.findUniqueOrThrow({
+      where: { id: owner.id },
+      select: { requiredDocTypes: { select: { id: true } } },
     });
+    ownerTypeMap.set(owner.id, assigned.requiredDocTypes.map((d) => d.id));
+  }
+
+  for (let day = 0; day < 21; day++) {
+    for (const owner of owners) {
+      const typeIds = ownerTypeMap.get(owner.id) ?? [];
+      if (typeIds.length === 0) continue;
+      const typeId = typeIds[(day + owner.id.length) % typeIds.length]!;
+      const uploader = uploaders[(day + owner.email.length) % uploaders.length]!;
+      const expiresAt = day % 6 === 0 ? expNearSoon : day % 8 === 0 ? expExpired : day % 4 === 0 ? expNear : expActiveFar;
+      await addDocument({
+        documentTypeId: typeId,
+        ownerUserId: owner.id,
+        uploadedById: uploader.id,
+        createdAt: daysAgo(day, 9 + (day % 8), (day * 7) % 59),
+        issuedAt: daysAgo(day + 30, 9, 0),
+        expiresAt,
+        verifiedAt: day % 3 === 0 ? daysAgo(Math.max(0, day - 1), 11, 0) : null,
+        fileName: `${owner.email.split('@')[0]}_${day}.pdf`,
+      });
+    }
   }
 
   console.log('');
@@ -599,14 +534,14 @@ async function main() {
   console.log(`TEACHER        ${teacherA2.email}`);
   console.log(`TEACHER        ${teacherB1.email}`);
   console.log(`TEACHER        ${teacherB2.email}`);
-  console.log('STUDENT        student.alex@demo.local');
-  console.log('STUDENT        student.sam@demo.local');
-  console.log('STUDENT        student.jordan@demo.local');
-  console.log('STUDENT        student.river@demo.local');
-  console.log('STUDENT        student.skye@demo.local');
-  console.log('STUDENT        student.lia@demo.local');
-  console.log('STUDENT        student.milo@demo.local');
-  console.log('STUDENT        student.zoe@demo.local');
+  console.log(`STUDENT        ${students[0]!.email}`);
+  console.log(`STUDENT        ${students[1]!.email}`);
+  console.log(`STUDENT        ${students[2]!.email}`);
+  console.log(`STUDENT        ${students[3]!.email}`);
+  console.log(`STUDENT        ${students[4]!.email}`);
+  console.log(`STUDENT        ${students[5]!.email}`);
+  console.log(`STUDENT        ${students[6]!.email}`);
+  console.log(`STUDENT        ${students[7]!.email}`);
   console.log('────────────────────────────────────────────────────────────────');
 }
 

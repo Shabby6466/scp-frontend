@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useGetBranchQuery, useGetBranchTeachersQuery } from '@/store/features/branchApi';
-import { useGetChildrenQuery } from '@/store/features/childApi';
-import { useGetDocumentsByBranchFacilityQuery } from '@/store/features/documentApi';
+import { useGetSchoolUsersQuery } from '@/store/features/userApi';
 import { useAppSelector } from '@/store/hooks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -12,24 +12,9 @@ import { EmptyState } from '@/components/empty-state';
 import { PageBackLink } from '@/components/page-back-link';
 import { PageHeader } from '@/components/page-header';
 import { DataTable, type DataTableColumnDef } from '@/components/data-table';
-import { DocumentExpiryStatusBadge } from '@/components/document-expiry-status-badge';
 import { buttonVariants } from '@/lib/button-variants';
-import { getDocumentExpiryStatus } from '@/lib/document-expiry-status';
 import { cn } from '@/lib/utils';
-import { Users, GraduationCap, FileCheck } from 'lucide-react';
-
-function formatShortDate(iso: string | null): string {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return '—';
-  }
-}
+import { Users, GraduationCap } from 'lucide-react';
 
 export default function BranchDetailPage() {
   const params = useParams();
@@ -37,10 +22,18 @@ export default function BranchDetailPage() {
   const user = useAppSelector((state) => state.auth.user);
 
   const { data: branch, isLoading: branchLoading } = useGetBranchQuery(branchId);
-  const { data: children, isLoading: childrenLoading } = useGetChildrenQuery({ branchId });
   const { data: teachers, isLoading: teachersLoading } = useGetBranchTeachersQuery(branchId);
-  const { data: facilityDocs, isLoading: facilityLoading } = useGetDocumentsByBranchFacilityQuery(
-    branchId,
+  const { data: schoolUsers, isLoading: schoolUsersLoading } = useGetSchoolUsersQuery(
+    branch?.schoolId ?? '',
+    { skip: !branch?.schoolId },
+  );
+
+  const students = useMemo(
+    () =>
+      (schoolUsers ?? []).filter(
+        (u) => u.role === 'STUDENT' && u.branchId === branchId,
+      ),
+    [schoolUsers, branchId],
   );
 
   const canManage =
@@ -49,24 +42,23 @@ export default function BranchDetailPage() {
     user?.role === 'DIRECTOR' ||
     user?.role === 'BRANCH_DIRECTOR';
 
-  type ChildRow = NonNullable<typeof children>[number];
+  type StudentRow = (typeof students)[number];
   type TeacherRow = NonNullable<typeof teachers>[number];
-  type FacilityRow = NonNullable<typeof facilityDocs>[number];
 
-  const childColumns: DataTableColumnDef<ChildRow>[] = [
+  const studentColumns: DataTableColumnDef<StudentRow>[] = [
     {
       id: 'name',
       header: 'Name',
       headInset: 'start',
       cellInset: 'start',
       cellClassName: 'font-medium text-foreground',
-      cell: (c) => `${c.firstName} ${c.lastName}`,
+      cell: (s) => s.name ?? '—',
     },
     {
-      id: 'guardian',
-      header: 'Guardian / login',
-      cellClassName: 'max-w-55 truncate text-muted-foreground',
-      cell: (c) => c.guardianName ?? c.guardianEmail ?? c.student?.email ?? '—',
+      id: 'email',
+      header: 'Email',
+      cellClassName: 'text-muted-foreground',
+      cell: (s) => s.email,
     },
     {
       id: 'actions',
@@ -75,9 +67,12 @@ export default function BranchDetailPage() {
       cellInset: 'end',
       headerClassName: 'w-32 text-right',
       cellClassName: 'text-right',
-      cell: (c) => (
-        <Link href={`/children/${c.id}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-          Open
+      cell: (s) => (
+        <Link
+          href={`/staff/${s.id}?from=${encodeURIComponent(`/branches/${branchId}`)}`}
+          className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+        >
+          Documents
         </Link>
       ),
     },
@@ -126,55 +121,6 @@ export default function BranchDetailPage() {
     },
   ];
 
-  const facilityColumns: DataTableColumnDef<FacilityRow>[] = [
-    {
-      id: 'documentType',
-      header: 'Document type',
-      headInset: 'start',
-      cellInset: 'start',
-      cellClassName: 'font-medium text-foreground',
-      cell: (d) => d.documentType?.name ?? 'Document',
-    },
-    {
-      id: 'issued',
-      header: 'Issuance',
-      cellClassName: 'text-muted-foreground text-sm',
-      cell: (d) => formatShortDate(d.issuedAt),
-    },
-    {
-      id: 'expires',
-      header: 'Expiry',
-      cellClassName: 'tabular-nums text-muted-foreground text-sm',
-      cell: (d) => formatShortDate(d.expiresAt),
-    },
-    {
-      id: 'file',
-      header: 'Document',
-      headerClassName: 'max-w-50',
-      cellClassName: 'max-w-50 truncate text-muted-foreground',
-      cell: (d) => <span title={d.fileName}>{d.fileName}</span>,
-    },
-    {
-      id: 'expiryStatus',
-      header: 'Status',
-      cell: (d) => (
-        <DocumentExpiryStatusBadge status={getDocumentExpiryStatus(d.expiresAt)} />
-      ),
-    },
-    {
-      id: 'verified',
-      header: 'Verified',
-      headInset: 'end',
-      cellInset: 'end',
-      cell: (d) =>
-        d.verifiedAt ? (
-          <Badge variant="default">Yes</Badge>
-        ) : (
-          <Badge variant="outline">Pending</Badge>
-        ),
-    },
-  ];
-
   if (branchLoading || !branch) {
     return (
       <div className="space-y-6">
@@ -191,20 +137,20 @@ export default function BranchDetailPage() {
 
       <PageHeader
         title={branch.name}
-        description="Children, teachers, and facility documents for this location."
+        description="Students and teachers at this branch. Open Documents to view uploads and compliance."
       />
 
-      <Tabs defaultValue="children" className="gap-4">
+      <Tabs defaultValue="students" className="gap-4">
         <TabsList
           variant="line"
           className="h-auto w-full justify-start gap-0 overflow-x-auto rounded-none border-b bg-transparent p-0"
         >
           <TabsTrigger
-            value="children"
+            value="students"
             className="gap-2 rounded-none border-b-2 border-transparent data-active:border-primary data-active:bg-transparent data-active:shadow-none"
           >
             <Users className="h-4 w-4" />
-            Children
+            Students
           </TabsTrigger>
           <TabsTrigger
             value="teachers"
@@ -213,52 +159,44 @@ export default function BranchDetailPage() {
             <GraduationCap className="h-4 w-4" />
             Teachers
           </TabsTrigger>
-          <TabsTrigger
-            value="facility"
-            className="gap-2 rounded-none border-b-2 border-transparent data-active:border-primary data-active:bg-transparent data-active:shadow-none"
-          >
-            <FileCheck className="h-4 w-4" />
-            Facility Docs
-          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="children" className="mt-0">
+        <TabsContent value="students" className="mt-0">
           <DataTable.Card
-            title="Children"
-            description="Students enrolled at this branch. Open a row to manage documents and details."
+            title="Students"
+            description="Student accounts assigned to this branch."
             actions={
               canManage ? (
                 <Link
-                  href={`/branches/${branchId}/children/new`}
+                  href={`/school/students?from=${encodeURIComponent(`/branches/${branchId}`)}`}
                   className={cn(buttonVariants({ size: 'sm' }))}
                 >
-                  Add child
+                  Manage students
                 </Link>
               ) : undefined
             }
           >
-            {childrenLoading ? (
+            {schoolUsersLoading ? (
               <DataTable.Table>
                 <DataTable.Header>
-                  <DataTable.ColumnHeaderRow columns={childColumns} />
+                  <DataTable.ColumnHeaderRow columns={studentColumns} />
                 </DataTable.Header>
                 <DataTable.Body>
-                  <DataTable.SkeletonRows columns={childColumns.length} />
+                  <DataTable.SkeletonRows columns={studentColumns.length} />
                 </DataTable.Body>
               </DataTable.Table>
-            ) : !children?.length ? (
+            ) : !students.length ? (
               <DataTable.EmptyWrap>
                 <EmptyState
                   icon={Users}
-                  title="No children yet"
-                  description={
-                    canManage
-                      ? 'Add a child to start tracking enrollment and required documents.'
-                      : 'No students are registered at this branch yet.'
-                  }
+                  title="No students yet"
+                  description="Add student users and assign them to this branch from the school directory."
                   action={
                     canManage
-                      ? { label: 'Add child', href: `/branches/${branchId}/children/new` }
+                      ? {
+                          label: 'Open students',
+                          href: `/school/students?from=${encodeURIComponent(`/branches/${branchId}`)}`,
+                        }
                       : undefined
                   }
                 />
@@ -266,10 +204,14 @@ export default function BranchDetailPage() {
             ) : (
               <DataTable.Table>
                 <DataTable.Header>
-                  <DataTable.ColumnHeaderRow columns={childColumns} />
+                  <DataTable.ColumnHeaderRow columns={studentColumns} />
                 </DataTable.Header>
                 <DataTable.Body>
-                  <DataTable.ColumnRows data={children} columns={childColumns} getRowKey={(c) => c.id} />
+                  <DataTable.ColumnRows
+                    data={students}
+                    columns={studentColumns}
+                    getRowKey={(s) => s.id}
+                  />
                 </DataTable.Body>
               </DataTable.Table>
             )}
@@ -277,10 +219,7 @@ export default function BranchDetailPage() {
         </TabsContent>
 
         <TabsContent value="teachers" className="mt-0">
-          <DataTable.Card
-            title="Teachers"
-            description="Teacher users assigned to this branch."
-          >
+          <DataTable.Card title="Teachers" description="Teacher users assigned to this branch.">
             {teachersLoading ? (
               <DataTable.Table>
                 <DataTable.Header>
@@ -312,58 +251,10 @@ export default function BranchDetailPage() {
                   <DataTable.ColumnHeaderRow columns={teacherColumns} />
                 </DataTable.Header>
                 <DataTable.Body>
-                  <DataTable.ColumnRows data={teachers} columns={teacherColumns} getRowKey={(t) => t.id} />
-                </DataTable.Body>
-              </DataTable.Table>
-            )}
-          </DataTable.Card>
-        </TabsContent>
-
-        <TabsContent value="facility" className="mt-0">
-          <DataTable.Card
-            title="Facility documents"
-            description="Permits, inspections, and site-level compliance files for this branch."
-            actions={
-              <Link
-                href={`/branches/${branchId}/facility`}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-              >
-                Upload & manage
-              </Link>
-            }
-          >
-            {facilityLoading ? (
-              <DataTable.Table>
-                <DataTable.Header>
-                  <DataTable.ColumnHeaderRow columns={facilityColumns} />
-                </DataTable.Header>
-                <DataTable.Body>
-                  <DataTable.SkeletonRows columns={facilityColumns.length} />
-                </DataTable.Body>
-              </DataTable.Table>
-            ) : !facilityDocs?.length ? (
-              <DataTable.EmptyWrap>
-                <EmptyState
-                  icon={FileCheck}
-                  title="No facility uploads yet"
-                  description="Upload DOH permit, certificate of occupancy, safety plans, and other branch-level documents."
-                  action={
-                    canManage
-                      ? { label: 'Go to facility documents', href: `/branches/${branchId}/facility` }
-                      : undefined
-                  }
-                />
-              </DataTable.EmptyWrap>
-            ) : (
-              <DataTable.Table>
-                <DataTable.Header>
-                  <DataTable.ColumnHeaderRow columns={facilityColumns} />
-                </DataTable.Header>
-                <DataTable.Body>
                   <DataTable.ColumnRows
-                    data={facilityDocs}
-                    columns={facilityColumns}
-                    getRowKey={(d) => d.id}
+                    data={teachers}
+                    columns={teacherColumns}
+                    getRowKey={(t) => t.id}
                   />
                 </DataTable.Body>
               </DataTable.Table>

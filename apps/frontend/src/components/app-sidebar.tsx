@@ -27,7 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { RoleBadge } from '@/components/role-badge';
 import type { AuthUser } from '@/store/features/authSlice';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -47,17 +46,21 @@ const ADMIN_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/schools', label: 'Schools', icon: Building2 },
   { href: '/users', label: 'Users', icon: Users },
+  { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
+  { href: '/document-requirements/new', label: 'Assign Documents', icon: GraduationCap },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 const TEACHER_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Building2 },
   { href: '/my-branch', label: 'My Branch', icon: Building2 },
+  { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
   { href: '/my-staff-file', label: 'My Documents', icon: FileText },
 ];
 
 const STUDENT_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Building2 },
+  { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
   { href: '/my-children', label: 'My student', icon: GraduationCap },
 ];
 
@@ -66,9 +69,23 @@ function schoolOwnerNav(user: AuthUser): { href: string; label: string; icon: Lu
     user.role === 'SCHOOL_ADMIN' && user.schoolId
       ? `/schools/${user.schoolId}/teachers`
       : '/school/teachers';
-  return [
+  const baseNav: { href: string; label: string; icon: LucideIcon }[] = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/branches', label: 'Branches', icon: Building2 },
+    { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
+  ];
+
+  if (user.role === 'DIRECTOR' || user.role === 'BRANCH_DIRECTOR') {
+    return [
+      ...baseNav,
+      { href: teachersHref, label: 'Teachers', icon: GraduationCap },
+      { href: '/school/students', label: 'Students', icon: Users },
+      { href: '/document-requirements/new', label: 'Assign Documents', icon: FileText },
+    ];
+  }
+
+  return [
+    ...baseNav,
     { href: teachersHref, label: 'Teachers', icon: GraduationCap },
   ];
 }
@@ -154,6 +171,15 @@ export function AppSidebar() {
                 if (item.href.includes('/teachers')) {
                   isActive = pathname === '/school/teachers' || pathname.startsWith('/school/teachers/') || /^\/schools\/[^/]+\/teachers(?:\/|$)/.test(pathname);
                 }
+                if (item.href === '/school/students') {
+                  isActive =
+                    pathname === '/school/students' ||
+                    pathname.startsWith('/school/students/') ||
+                    pathname === '/branches' ||
+                    /^\/branches\/[^/]+(?:\/|$)/.test(pathname) ||
+                    pathname === '/children' ||
+                    /^\/children\/[^/]+(?:\/|$)/.test(pathname);
+                }
                 const Icon = item.icon;
                 return (
                   <SidebarMenuItem key={item.href}>
@@ -183,7 +209,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-6">
         {user && (
-          <div className="rounded-[24px] bg-white/5 p-2 transition-all hover:bg-white/10">
+          <div className="rounded-2xl bg-white/5 p-2 transition-all hover:bg-white/10">
             <DropdownMenu>
               <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-[20px] px-3 py-3 text-left outline-none">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 font-bold text-white">

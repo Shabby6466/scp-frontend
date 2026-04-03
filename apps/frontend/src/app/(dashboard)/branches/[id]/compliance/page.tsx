@@ -73,69 +73,74 @@ function teacherComplianceColumns(
   ];
 }
 
-const STUDENT_COMPLIANCE_COLUMNS: DataTableColumnDef<ComplianceStudentRow>[] = [
-  {
-    id: 'student',
-    header: 'Student',
-    headInset: 'start',
-    cellInset: 'start',
-    cellClassName: 'font-medium',
-    cell: (row) => row.name,
-  },
-  {
-    id: 'guardian',
-    header: 'Guardian',
-    cellClassName: 'text-muted-foreground',
-    cell: (row) => row.guardianName ?? row.guardianEmail ?? '—',
-  },
-  {
-    id: 'required',
-    header: 'Required',
-    headInset: 'end',
-    headerClassName: 'text-right',
-    cellInset: 'end',
-    cellClassName: 'text-right tabular-nums',
-    cell: (row) => row.requiredCount,
-  },
-  {
-    id: 'uploaded',
-    header: 'Uploaded',
-    headInset: 'end',
-    headerClassName: 'text-right',
-    cellInset: 'end',
-    cellClassName: 'text-right tabular-nums',
-    cell: (row) => row.uploadedSatisfiedCount,
-  },
-  {
-    id: 'missing',
-    header: 'Missing',
-    headInset: 'end',
-    headerClassName: 'text-right',
-    cellInset: 'end',
-    cellClassName: 'text-right tabular-nums',
-    cell: (row) => row.missingCount,
-  },
-  {
-    id: 'actions',
-    header: '',
-    headInset: 'end',
-    headerClassName: 'w-[140px]',
-    cellInset: 'end',
-    cell: (row) => (
-      <Link
-        href={`/children/${row.childId}`}
-        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-      >
-        View forms
-      </Link>
-    ),
-  },
-];
+function studentComplianceColumns(
+  branchId: string,
+): DataTableColumnDef<ComplianceStudentRow>[] {
+  return [
+    {
+      id: 'student',
+      header: 'Student',
+      headInset: 'start',
+      cellInset: 'start',
+      cellClassName: 'font-medium',
+      cell: (row) => row.name,
+    },
+    {
+      id: 'guardian',
+      header: 'Guardian',
+      cellClassName: 'text-muted-foreground',
+      cell: (row) => row.guardianName ?? row.guardianEmail ?? '—',
+    },
+    {
+      id: 'required',
+      header: 'Required',
+      headInset: 'end',
+      headerClassName: 'text-right',
+      cellInset: 'end',
+      cellClassName: 'text-right tabular-nums',
+      cell: (row) => row.requiredCount,
+    },
+    {
+      id: 'uploaded',
+      header: 'Uploaded',
+      headInset: 'end',
+      headerClassName: 'text-right',
+      cellInset: 'end',
+      cellClassName: 'text-right tabular-nums',
+      cell: (row) => row.uploadedSatisfiedCount,
+    },
+    {
+      id: 'missing',
+      header: 'Missing',
+      headInset: 'end',
+      headerClassName: 'text-right',
+      cellInset: 'end',
+      cellClassName: 'text-right tabular-nums',
+      cell: (row) => row.missingCount,
+    },
+    {
+      id: 'actions',
+      header: '',
+      headInset: 'end',
+      headerClassName: 'w-[140px]',
+      cellInset: 'end',
+      cell: (row) => (
+        <Link
+          href={`/staff/${row.userId}?from=${encodeURIComponent(`/branches/${branchId}`)}`}
+          className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+        >
+          View forms
+        </Link>
+      ),
+    },
+  ];
+}
 
 export default function BranchCompliancePage() {
   const params = useParams();
   const branchId = params.id as string;
   const teacherColumns = teacherComplianceColumns(branchId);
+  const studentColumns = studentComplianceColumns(branchId);
   const { data, isLoading, isError } = useGetBranchCompliancePeopleQuery(branchId);
 
   if (isLoading) {
@@ -208,13 +213,13 @@ export default function BranchCompliancePage() {
           <DataTable.Card>
             <DataTable.Table>
               <DataTable.Header>
-                <DataTable.ColumnHeaderRow columns={STUDENT_COMPLIANCE_COLUMNS} />
+                <DataTable.ColumnHeaderRow columns={studentColumns} />
               </DataTable.Header>
               <DataTable.Body>
                 {data.students.length === 0 ? (
                   <DataTable.Row>
                     <DataTable.Cell
-                      colSpan={STUDENT_COMPLIANCE_COLUMNS.length}
+                      colSpan={studentColumns.length}
                       className="text-center text-muted-foreground"
                       inset="both"
                     >
@@ -224,8 +229,8 @@ export default function BranchCompliancePage() {
                 ) : (
                   <DataTable.ColumnRows
                     data={data.students}
-                    columns={STUDENT_COMPLIANCE_COLUMNS}
-                    getRowKey={(row) => row.childId}
+                    columns={studentColumns}
+                    getRowKey={(row) => row.userId}
                   />
                 )}
               </DataTable.Body>
