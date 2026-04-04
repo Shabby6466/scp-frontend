@@ -1,80 +1,110 @@
-# scp-frontend
+# 🏢 School Compliance Management System
 
-# School Compliance Platform
+A high-performance, production-ready SaaS platform designed for school groups to manage compliance documentation, personnel clearances, and organizational health.
 
-A production-ready SaaS application for school groups to manage compliance documents with RBAC, dynamic forms, versioning, expiry tracking, audit trails, risk heatmaps, and signed-URL sharing.
+---
 
-## Tech Stack
+## 🚀 Quick Start
 
-- **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Redux Toolkit + RTK Query
-- **Backend:** NestJS 11, TypeScript, Prisma ORM, object storage via **Supabase Storage** (default) or **AWS S3** (`STORAGE_PROVIDER` in `.env`)
-- **Database:** PostgreSQL 16
-- **Monorepo:** Turborepo + pnpm workspaces
+### 1. Prerequisites
+Ensure you have the following installed:
+- **Node.js** (v22 or higher)
+- **pnpm** (v9 or higher)
+- **Docker** (for local database)
 
-## Project Structure
-
-```
-├── apps/
-│   ├── frontend/          # Next.js 15 app (port 3000)
-│   └── backend/           # NestJS API (port 4000)
-├── packages/
-│   ├── shared/            # Shared types, constants, enums
-│   └── ui/                # Shared shadcn/ui components
-├── prisma/
-│   └── schema.prisma      # Database schema
-├── docker-compose.yml     # PostgreSQL + pgAdmin
-└── turbo.json             # Turborepo config
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js >= 22
-- pnpm >= 9
-- Docker (for local PostgreSQL)
-
-### Setup
-
+### 2. Installation
+Clone the repository and install dependencies:
 ```bash
-# Install dependencies
 pnpm install
-
-# Start PostgreSQL
-docker compose up -d
-
-# Generate Prisma client
-pnpm db:generate
-
-# Push schema to database
-pnpm db:push
-
-# Start development servers
-pnpm dev
 ```
 
-### Environment Variables
-
-Copy `.env.example` to `.env` and fill in the values:
-
+### 3. Environment Configuration
+Copy the example environment file and update the values:
 ```bash
 cp .env.example .env
 ```
+> [!IMPORTANT]
+> Update `DATABASE_URL` with your local credentials and add your `MAILERSEND_API_KEY` to enable the professional "Nudge" system.
 
-## Development
-
+### 4. Database Setup
+Start the PostgreSQL container and sync the Prisma schema:
 ```bash
-pnpm dev          # Start all apps in dev mode
-pnpm build        # Build all apps
-pnpm lint         # Lint all apps
-pnpm db:studio    # Open Prisma Studio
-pnpm db:migrate   # Run database migrations
+# Start PostgreSQL & pgAdmin
+docker compose up -d
+
+# Generate Prisma client and sync schema
+pnpm db:generate
+pnpm db:push
 ```
 
-## Services
+### 5. Launch Development Servers
+Run both frontend and backend simultaneously:
+```bash
+# Standard mode
+pnpm dev
 
-| Service  | URL                     |
-|----------|-------------------------|
-| Frontend | http://localhost:3000    |
-| Backend  | http://localhost:4000    |
-| pgAdmin  | http://localhost:5050    |
+# High-performance mode (with Turbopack)
+pnpm dev:turbo
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Monorepo** | [Turborepo](https://turbo.build/) + pnpm Workspaces |
+| **Frontend** | Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui |
+| **Backend** | NestJS 11, TypeScript, Prisma ORM |
+| **State Management** | Redux Toolkit + RTK Query |
+| **Database** | PostgreSQL 16 (via Docker) |
+| **Storage** | Supabase Storage or AWS S3 |
+
+---
+
+## ⚡ Key Features & Commands
+
+### High-Performance "Power Tools"
+The system includes advanced management features for school directors:
+- **Action Center**: A "Task-First" dashboard for pending reviews and critical gaps.
+- **Compliance Health Score**: Visual 0-100% health indicators.
+- **Bulk Verification**: Instant verification of multiple documents.
+- **Nudge System**: Professional email reminders for staff gaps.
+
+### Development Commands
+| Command | Description |
+| :--- | :--- |
+| `pnpm dev` | Start all applications in development mode |
+| `pnpm build` | Create a production-ready build of all apps |
+| `pnpm db:push` | Sync the Prisma schema to your local database |
+| `pnpm db:studio` | Open a local GUI for database management |
+| `pnpm lint` | Run recursive linting across the monorepo |
+
+---
+
+## 🌐 Service Access
+
+Once running, the system is accessible at:
+- **Frontend**: `http://localhost:3000`
+- **API Backend**: `http://localhost:4000`
+- **Database GUI (pgAdmin)**: `http://localhost:5050` (Email: `admin@school.local`, Pass: `admin`)
+
+---
+
+## 📂 Project Structure
+```text
+├── apps/
+│   ├── frontend/          # Next.js Application
+│   └── backend/           # NestJS REST API
+├── packages/
+│   ├── shared/            # Shared Types & Constants
+│   └── ui/                # Shared UI Component Library
+├── prisma/
+│   └── schema.prisma      # Database Schema Definition
+└── docker-compose.yml     # Infrastructure (Postgres/pgAdmin)
+```
+
+---
+
+> [!TIP]
+> For the best development experience, use `pnpm dev:turbo` to leverage Turbopack's lightning-fast compilation.
