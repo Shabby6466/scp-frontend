@@ -33,9 +33,11 @@ export default function SchoolStudentsRedirectPage() {
   const from = sanitizeFromPath(searchParams.get('from'));
   const backHref = from ? from : '/dashboard';
 
-  const { data: users = [], isLoading } = useGetSchoolUsersQuery(schoolId, {
-    skip: !schoolId || !canUsePage,
-  });
+  const { data: usersPage, isLoading } = useGetSchoolUsersQuery(
+    { schoolId },
+    { skip: !schoolId || !canUsePage },
+  );
+  const users = usersPage?.data ?? [];
   const { data: branches = [] } = useGetBranchesQuery(schoolId, {
     skip: !schoolId || !canUsePage,
   });

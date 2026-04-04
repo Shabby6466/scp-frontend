@@ -18,6 +18,16 @@ export interface Document {
     isMandatory?: boolean;
     renewalPeriod?: string;
   };
+  ownerUser?: { id: string; name: string; email: string; role: string };
+}
+
+export interface SearchDocumentParams {
+  query?: string;
+  schoolId?: string;
+  branchId?: string;
+  documentTypeId?: string;
+  verified?: boolean;
+  ownerRole?: string;
 }
 
 export const documentApi = api.injectEndpoints({
@@ -120,6 +130,10 @@ export const documentApi = api.injectEndpoints({
       }),
       invalidatesTags: ['Document', 'Branch', 'Analytics'],
     }),
+    searchDocuments: builder.query<Document[], SearchDocumentParams>({
+      query: (params) => ({ url: '/documents/search', params }),
+      providesTags: ['Document'],
+    }),
   }),
 });
 
@@ -133,4 +147,5 @@ export const {
   useExportPerFormPdfMutation,
   useLazyGetDownloadUrlQuery,
   useVerifyDocumentMutation,
+  useSearchDocumentsQuery,
 } = documentApi;

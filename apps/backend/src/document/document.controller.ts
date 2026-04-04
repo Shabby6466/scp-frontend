@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   Patch,
+  Query,
   Res,
   StreamableFile,
   UseGuards,
@@ -14,6 +15,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { PresignDto } from './dto/presign.dto.js';
 import { CompleteDocumentDto } from './dto/complete.dto.js';
+import { SearchDocumentDto } from './dto/search-document.dto.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
 
@@ -21,6 +25,27 @@ import type { Response } from 'express';
 @UseGuards(JwtAuthGuard)
 export class DocumentController {
   constructor(private readonly documentService: DocumentService) {}
+
+  @Get('search')
+  @UseGuards(RolesGuard)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
+  searchDocuments(
+    @Query() dto: SearchDocumentDto,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.searchDocuments(dto, user);
+  }
 
   @Post('presign')
   presign(

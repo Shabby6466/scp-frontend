@@ -2,18 +2,25 @@
 
 import { useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useGetDocumentsByStaffQuery } from '@/store/features/documentApi';
+
+import { useGetUserDetailQuery, useUpdateUserMutation } from '@/store/features/userApi';
 import { useGetDocumentTypesQuery } from '@/store/features/documentTypeApi';
 import { toast, toastError } from '@/lib/toast';
 import { putFileToPresignedUrl } from '@/lib/presigned-upload';
 import { usePresignMutation, useCompleteDocumentMutation, useLazyGetDownloadUrlQuery, useVerifyDocumentMutation } from '@/store/features/documentApi';
 import { useAppSelector } from '@/store/hooks';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DocumentChecklistRow } from '@/components/documents/document-checklist-row';
 import { DocumentUploadMetadataDialog } from '@/components/documents/document-upload-metadata-dialog';
 import { PageBackLink } from '@/components/layout/page-back-link';
 import { PageHeader } from '@/components/layout/page-header';
 import { sanitizeFromPath } from '@/lib/safe-from-path';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Calendar, User as UserIcon, Mail, Building, Briefcase, FileText, CheckCircle2, Clock } from 'lucide-react';
+import { RoleBadge } from '@/components/users/role-badge';
+import { Button, buttonVariants } from '@/components/ui/button';
 
 export default function StaffDocumentsPage() {
   const params = useParams();
@@ -27,32 +34,31 @@ export default function StaffDocumentsPage() {
     file: File;
   } | null>(null);
 
-  const { data: documents } = useGetDocumentsByStaffQuery(teacherUserId);
-  const { data: docTypes } = useGetDocumentTypesQuery(
-    { schoolId: user?.schoolId ?? undefined },
-    { skip: !user?.schoolId },
-  );
+  const { data: userDetail, isLoading: isLoadingDetail } = useGetUserDetailQuery(teacherUserId);
   const [presign] = usePresignMutation();
   const [completeDoc] = useCompleteDocumentMutation();
   const [getDownloadUrl] = useLazyGetDownloadUrlQuery();
   const [verifyDoc] = useVerifyDocumentMutation();
+
+  if (isLoadingDetail || !userDetail) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-6 w-24 bg-muted rounded" />
+        <div className="h-32 bg-card border rounded-xl" />
+        <div className="h-64 bg-card border rounded-xl" />
+      </div>
+    );
+  }
 
   const canVerify =
     user?.role === 'ADMIN' ||
     user?.role === 'SCHOOL_ADMIN' ||
     user?.role === 'DIRECTOR' ||
     user?.role === 'BRANCH_DIRECTOR';
+
   const isOwnProfile = user?.id === teacherUserId;
-  const isBranchDirector = user?.role === 'BRANCH_DIRECTOR';
 
-  const from = sanitizeFromPath(searchParams.get('from'));
-  const backHref = from
-    ? from
-    : isBranchDirector && user?.branchId
-      ? `/branches/${user.branchId}`
-      : '/dashboard';
-
-  const docsByType = new Map(documents?.map((d) => [d.documentTypeId, d]) ?? []);
+  const docsByType = new Map(userDetail.ownerDocuments.map((d) => [d.documentTypeId, d]));
 
   const handleFileChosen = (documentTypeId: string, documentTypeLabel: string, file: File) => {
     setUploadTarget({ documentTypeId, documentTypeLabel, file });
@@ -98,11 +104,46 @@ export default function StaffDocumentsPage() {
     if (url) window.open(url, '_blank');
   };
 
+  const from = sanitizeFromPath(searchParams.get('from'));
+  const backHref = from || (user?.role === 'BRANCH_DIRECTOR' ? `/branches/${user.branchId}` : '/users');
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <PageBackLink href={backHref} />
 
-      <PageHeader title={isOwnProfile ? 'My documents' : 'Teacher documents'} />
+      {/* Profile Header */}
+      <div className="relative overflow-hidden bg-card border rounded-2xl shadow-sm p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <UserIcon size={120} />
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+          <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
+            <UserIcon size={32} />
+          </div>
+
+          <div className="space-y-2 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">{userDetail.name || 'No Name'}</h1>
+              <RoleBadge role={userDetail.role} />
+              {userDetail.staffClearanceActive !== undefined && (
+                <Badge variant={userDetail.staffClearanceActive ? "default" : "secondary"} className="rounded-full px-3">
+                  {userDetail.staffClearanceActive ? (
+                    <span className="flex items-center gap-1.5"><CheckCircle2 size={12} /> Cleared</span>
+                  ) : (
+                    <span className="flex items-center gap-1.5"><Clock size={12} /> Pending Clearance</span>
+                  )}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-muted-foreground text-sm">
+              <span className="flex items-center gap-2"><Mail size={14} /> {userDetail.email}</span>
+              {userDetail.school && <span className="flex items-center gap-2"><Building size={14} /> {userDetail.school.name}</span>}
+              {userDetail.branch && <span className="flex items-center gap-2 font-medium"><Briefcase size={14} /> {userDetail.branch.name}</span>}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <DocumentUploadMetadataDialog
         open={!!uploadTarget}
@@ -115,31 +156,107 @@ export default function StaffDocumentsPage() {
         isSubmitting={uploadTarget != null && uploadingTypeId === uploadTarget.documentTypeId}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Documents</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-        <div className="divide-y">
-          {docTypes?.map((dt) => {
-            const doc = docsByType.get(dt.id);
-            return (
-              <DocumentChecklistRow
-                key={dt.id}
-                documentTypeName={dt.name}
-                mandatory={dt.isMandatory}
-                doc={doc}
-                uploading={uploadingTypeId === dt.id}
-                canVerify={canVerify}
-                onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
-                onDownload={() => doc && handleDownload(doc.id)}
-                onVerify={() => doc && void verifyDoc(doc.id)}
-              />
-            );
-          })}
-        </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="documents" className="space-y-6">
+        <TabsList className="bg-muted/50 p-1 rounded-xl">
+          <TabsTrigger value="overview" className="rounded-lg px-6">Overview</TabsTrigger>
+          <TabsTrigger value="documents" className="rounded-lg px-6">Documents</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="animate-in fade-in slide-in-from-left-4 duration-500">
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="rounded-2xl border-none shadow-sm bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="text-primary" size={18} />
+                  Profile Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {userDetail.teacherProfile && (
+                  <>
+                    <DetailItem label="Subject Area" value={userDetail.teacherProfile.subjectArea} />
+                    <DetailItem label="Employee Code" value={userDetail.teacherProfile.employeeCode} />
+                    <DetailItem label="Joining Date" value={userDetail.teacherProfile.joiningDate ? new Date(userDetail.teacherProfile.joiningDate).toLocaleDateString() : '—'} />
+                  </>
+                )}
+                {userDetail.studentProfile && (
+                  <>
+                    <DetailItem label="Roll Number" value={userDetail.studentProfile.rollNumber} />
+                    <DetailItem label="Guardian Name" value={userDetail.studentProfile.guardianName} />
+                    <DetailItem label="Guardian Phone" value={userDetail.studentProfile.guardianPhone} />
+                  </>
+                )}
+                {userDetail.staffPosition && <DetailItem label="Position" value={userDetail.staffPosition} />}
+                <DetailItem label="Member Since" value={new Date(userDetail.createdAt).toLocaleDateString()} />
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-none shadow-sm bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Calendar className="text-primary" size={18} />
+                  Compliance Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+                  <span className="text-sm text-muted-foreground">Verification Status</span>
+                  <Badge variant={userDetail.ownerDocuments.every(d => d.verifiedAt) && userDetail.requiredDocTypes.length === userDetail.ownerDocuments.length ? "default" : "secondary"}>
+                    {userDetail.ownerDocuments.every(d => d.verifiedAt) && userDetail.requiredDocTypes.length === userDetail.ownerDocuments.length ? "Compliant" : "Action Needed"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+                  <span className="text-sm text-muted-foreground">Documents Uploaded</span>
+                  <span className="text-sm font-medium">{userDetail.ownerDocuments.length} / {userDetail.requiredDocTypes.length}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="animate-in fade-in slide-in-from-right-4 duration-500">
+          <Card className="rounded-2xl border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="text-primary" size={18} />
+                Document Checklist
+              </CardTitle>
+              <CardDescription>
+                Required documents based on role and branch compliance policy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <div className="divide-y divide-border/50">
+                {userDetail.requiredDocTypes?.map((dt) => {
+                  const doc = docsByType.get(dt.id);
+                  return (
+                    <DocumentChecklistRow
+                      key={dt.id}
+                      documentTypeName={dt.name}
+                      mandatory={dt.isMandatory}
+                      doc={doc}
+                      uploading={uploadingTypeId === dt.id}
+                      canVerify={canVerify}
+                      onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
+                      onDownload={() => doc && handleDownload(doc.id)}
+                      onVerify={() => doc && void verifyDoc(doc.id)}
+                    />
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
+}
+
+function DetailItem({ label, value }: { label: string, value?: string | null }) {
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-border/50 last:border-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold">{value || '—'}</span>
+    </div>
+  )
 }

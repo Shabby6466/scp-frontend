@@ -40,7 +40,7 @@ export default function DashboardLayout({
       <AuthUserSync />
       <SidebarProvider className="h-svh overflow-hidden flex">
         <AppSidebar />
-        <SidebarInset className="flex min-h-0 flex-1 flex-col">
+        <SidebarInset className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
           <header className="flex h-16 shrink-0 items-center gap-3 bg-secondary px-6">
             <SidebarTrigger className="-ml-1 shrink-0" />
             <div className="min-w-0 flex-1 overflow-x-auto">
@@ -72,7 +72,7 @@ export default function DashboardLayout({
               </Button>
             </div>
           </header>
-          <main className="bg-app-main min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+          <main className="bg-app-main min-h-0 min-w-0 flex-1 overflow-auto p-4 sm:p-6">
             {children}
           </main>
         </SidebarInset>

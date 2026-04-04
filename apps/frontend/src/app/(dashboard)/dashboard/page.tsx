@@ -8,10 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { MyDocumentStats } from '@/components/my-document-stats';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Building2, GraduationCap, FileText, ChevronRight, Users } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DashboardAnalytics } from '@/components/data/dashboard-analytics';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Building2, GraduationCap, FileText, ChevronRight } from 'lucide-react';
+
+const ANALYTICS_ROLES = new Set(['ADMIN', 'SCHOOL_ADMIN', 'DIRECTOR', 'BRANCH_DIRECTOR']);
+const PERSONAL_DOC_ROLES = new Set(['TEACHER', 'STUDENT']);
 
 export default function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user);
@@ -21,45 +25,51 @@ export default function DashboardPage() {
   const roleLinks =
     user?.role === 'ADMIN' || user?.role === 'SCHOOL_ADMIN'
       ? [
-          {
-            href: '/schools',
-            label: 'Schools',
-            description: 'Manage schools and branches; add people from Users in the sidebar',
-            icon: Building2,
-          },
-        ]
+        {
+          href: '/schools',
+          label: 'Schools',
+          description: 'Manage schools and branches',
+          icon: Building2,
+        },
+        {
+          href: '/users',
+          label: 'Users',
+          description: 'Manage all platform users',
+          icon: Users,
+        },
+      ]
       : user?.role === 'DIRECTOR'
         ? [
+          {
+            href: '/branches',
+            label: 'Branches',
+            description: 'Locations, teachers, and compliance for your school',
+            icon: Building2,
+          },
+          {
+            href: '/school/teachers',
+            label: 'Teachers',
+            description: 'Invite teachers by branch',
+            icon: GraduationCap,
+          },
+        ]
+        : isBranchDirector && branchId
+          ? [
             {
-              href: '/branches',
-              label: 'Branches',
-              description: 'Locations, children, teachers, and compliance for your school',
+              href: `/branches/${branchId}`,
+              label: 'My Branch',
+              description: 'Children, teachers, and facility documents',
               icon: Building2,
             },
             {
               href: '/school/teachers',
               label: 'Teachers',
-              description: 'Invite teachers by branch',
+              description: 'Invite teachers for your branch',
               icon: GraduationCap,
             },
           ]
-        : isBranchDirector && branchId
-          ? [
-              {
-                href: `/branches/${branchId}`,
-                label: 'My branch',
-                description: 'Children, teachers, and facility documents for your location',
-                icon: Building2,
-              },
-              {
-                href: '/school/teachers',
-                label: 'Teachers',
-                description: 'Invite teachers for your branch',
-                icon: GraduationCap,
-              },
-            ]
           : user?.role === 'TEACHER'
-          ? [
+            ? [
               {
                 href: '/my-branch',
                 label: 'My Branch',
@@ -69,22 +79,30 @@ export default function DashboardPage() {
               {
                 href: '/my-staff-file',
                 label: 'My Documents',
-                description: 'Upload required documents',
+                description: 'Upload required compliance documents',
                 icon: FileText,
               },
             ]
-          : user?.role === 'STUDENT'
-            ? [
+            : user?.role === 'STUDENT'
+              ? [
                 {
                   href: '/my-children',
-                  label: 'My student',
-                  description: 'Your enrollment, profile, and documents',
+                  label: 'My Profile',
+                  description: 'Your enrollment and documents',
                   icon: Building2,
                 },
+                {
+                  href: '/document-uploading',
+                  label: 'Upload Documents',
+                  description: 'Submit required compliance documents',
+                  icon: FileText,
+                },
               ]
-            : [];
+              : [];
 
   const branchDirectorAwaitingBranch = isBranchDirector && !branchId;
+  const showAnalytics = user?.role && ANALYTICS_ROLES.has(user.role);
+  const showPersonalDocs = user?.role && PERSONAL_DOC_ROLES.has(user.role);
 
   return (
     <div className="space-y-8">
@@ -96,13 +114,14 @@ export default function DashboardPage() {
       {branchDirectorAwaitingBranch ? (
         <Alert>
           <AlertDescription>
-            Your account is a branch director but no branch has been assigned yet. Your school director
-            will assign you when they create or configure a branch for you.
+            Your account is a branch director but no branch has been assigned yet. Your school
+            director will assign you when they create or configure a branch for you.
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <DashboardAnalytics />
+      {showPersonalDocs ? <MyDocumentStats /> : null}
+      {showAnalytics ? <DashboardAnalytics /> : null}
 
       {roleLinks.length > 0 ? (
         <div>
@@ -126,7 +145,9 @@ export default function DashboardPage() {
                           {item.label}
                         </CardTitle>
                         {item.description && (
-                          <CardDescription className="text-sm leading-relaxed">{item.description}</CardDescription>
+                          <CardDescription className="text-sm leading-relaxed">
+                            {item.description}
+                          </CardDescription>
                         )}
                       </div>
                       <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />

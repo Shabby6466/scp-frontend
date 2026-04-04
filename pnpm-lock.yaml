@@ -14,7 +14,13 @@ importers:
       bcrypt:
         specifier: ^6
         version: 6.0.0
+      pdfkit:
+        specifier: ^0.18.0
+        version: 0.18.0
     devDependencies:
+      '@types/pdfkit':
+        specifier: ^0.17.5
+        version: 0.17.5
       prisma:
         specifier: ^6
         version: 6.19.2(typescript@5.9.3)

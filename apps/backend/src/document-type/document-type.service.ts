@@ -85,15 +85,27 @@ export class DocumentTypeService {
       );
     }
 
-    return this.prisma.documentType.create({
-      data: {
-        name: dto.name,
-        targetRole: dto.targetRole,
-        renewalPeriod: dto.renewalPeriod ?? RenewalPeriod.NONE,
-        schoolId,
-        createdById: user.id,
-      },
-    });
+    try {
+      return await this.prisma.documentType.create({
+        data: {
+          name: dto.name,
+          targetRole: dto.targetRole,
+          renewalPeriod: dto.renewalPeriod ?? RenewalPeriod.NONE,
+          schoolId,
+          createdById: user.id,
+        },
+      });
+    } catch (error: any) {
+      // Handle unique constraint violation (P2002)
+      if (error.code === 'P2002') {
+        throw new BadRequestException(
+          `A document type with the name "${dto.name}" already exists for this scope.`,
+        );
+      }
+      // Log for 500 error debugging
+      console.error('[DocumentTypeService.create] Unexpected error:', error);
+      throw error;
+    }
   }
 
   async assignUsers(

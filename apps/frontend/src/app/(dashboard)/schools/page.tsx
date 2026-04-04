@@ -52,8 +52,8 @@ export default function SchoolsPage() {
   const [deleteSchool, { isLoading: isDeleting }] = useDeleteSchoolMutation();
 
   const eligibleDirectors = useMemo(() => {
-    if (!allUsers?.length) return [];
-    return [...allUsers]
+    if (!allUsers?.data?.length) return [];
+    return [...allUsers.data]
       .filter((u) => u.role === 'DIRECTOR')
       .sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email, undefined, { sensitivity: 'base' }));
   }, [allUsers]);

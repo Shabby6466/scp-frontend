@@ -8,8 +8,13 @@ import {
   useGetSchoolUsersQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
+  useSearchUsersQuery,
 } from '@/store/features/userApi';
-import { Button } from '@/components/ui/button';
+import { UserSearchFilters, type UserFilters } from './user-search-filters';
+import { useDebounce } from '@/hooks/use-debounce';
+import Link from 'next/link';
+import { UserPlus } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,7 +39,6 @@ import { EmptyState } from '@/components/layout/empty-state';
 import { toast, toastError } from '@/lib/toast';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserPlus } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
 
 function rowBelongsToSchool(row: UserSummary, schoolId: string): boolean {
@@ -94,7 +98,8 @@ const ROLE_COLUMN: DataTableColumnDef<UserSummary> = {
 const LOCATION_COLUMN: DataTableColumnDef<UserSummary> = {
   id: 'location',
   header: 'School / branch',
-  cellClassName: 'text-muted-foreground text-sm',
+  headerClassName: 'min-w-[200px]',
+  cellClassName: 'text-muted-foreground text-sm max-w-[300px] truncate',
   cell: (u) => {
     const parts = [u.school?.name, u.branch?.name].filter(Boolean);
     return parts.length ? parts.join(' · ') : '—';
@@ -118,6 +123,16 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
   const [createBranchId, setCreateBranchId] = useState('');
   /** Admin only: explicit school pick; defaults to first school when unset. */
   const [createSchoolId, setCreateSchoolId] = useState<string | null>(null);
+
+  const [filters, setFilters] = useState<UserFilters>({
+    query: '',
+    role: 'ALL',
+    branchId: 'ALL',
+    staffClearanceActive: undefined,
+  });
+  const [page, setPage] = useState(1);
+  const limit = 20;
+  const debouncedQuery = useDebounce(filters.query, 400);
 
   const { data: schools, isLoading: schoolsLoading } = useGetSchoolsQuery(undefined, {
     skip: !isAdmin,
@@ -151,27 +166,66 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
   });
 
   const {
-    data: schoolUsers,
+    data: schoolUsersResponse,
     isLoading: schoolUsersLoading,
     isError: schoolUsersError,
     error: schoolUsersErrorPayload,
-  } = useGetSchoolUsersQuery(schoolId, {
-    skip: !schoolId || isAdmin,
-  });
+  } = useGetSchoolUsersQuery(
+    { schoolId, params: { page, limit } },
+    {
+      skip: !schoolId || isAdmin,
+    },
+  );
 
   const {
-    data: allUsers,
+    data: allUsersResponse,
     isLoading: allUsersLoading,
     isError: allUsersError,
     error: allUsersErrorPayload,
-  } = useGetAllUsersQuery(undefined, {
-    skip: !isAdmin,
+  } = useGetAllUsersQuery(
+    { page, limit },
+    {
+      skip: !isAdmin,
+    },
+  );
+
+  const {
+    data: searchedUsersResponse,
+    isLoading: searchedUsersLoading,
+    isError: searchedUsersError,
+    error: searchedUsersErrorPayload,
+  } = useSearchUsersQuery({
+    query: debouncedQuery || undefined,
+    role: filters.role === 'ALL' ? undefined : (filters.role as any),
+    branchId: filters.branchId === 'ALL' ? undefined : filters.branchId,
+    staffClearanceActive: filters.staffClearanceActive,
+    schoolId: isAdmin ? undefined : schoolId,
+    page,
+    limit,
   });
 
-  const users = isAdmin ? allUsers : schoolUsers;
-  const usersLoading = isAdmin ? allUsersLoading : schoolUsersLoading;
-  const usersError = isAdmin ? allUsersError : schoolUsersError;
-  const usersErrorPayload = isAdmin ? allUsersErrorPayload : schoolUsersErrorPayload;
+  const hasSearch = 
+    debouncedQuery || 
+    filters.role !== 'ALL' || 
+    filters.branchId !== 'ALL' || 
+    filters.staffClearanceActive !== undefined;
+
+  const currentResponse = hasSearch 
+    ? searchedUsersResponse 
+    : (isAdmin ? allUsersResponse : schoolUsersResponse);
+
+  const users = currentResponse?.data || [];
+  const meta = currentResponse?.meta;
+
+  const usersLoading = hasSearch 
+    ? searchedUsersLoading 
+    : (isAdmin ? allUsersLoading : schoolUsersLoading);
+  const usersError = hasSearch 
+    ? searchedUsersError 
+    : (isAdmin ? allUsersError : schoolUsersError);
+  const usersErrorPayload = hasSearch 
+    ? searchedUsersErrorPayload 
+    : (isAdmin ? allUsersErrorPayload : schoolUsersErrorPayload);
 
   const usersErrorMessage =
     usersError && usersErrorPayload && 'data' in usersErrorPayload
@@ -208,26 +262,36 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
         header: '',
         headInset: 'end',
         cellInset: 'end',
-        headerClassName: 'w-[96px]',
-        cell: (row) =>
-          canShowEditUser(user, row) ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setEditName(row.name ?? '');
-                setEditPassword('');
-                setEditDirectorSchoolId(row.role === 'DIRECTOR' ? row.schoolId ?? null : null);
-                setEditTarget(row);
-              }}
+        headerClassName: 'w-[140px]',
+        cellClassName: 'w-[140px]',
+        cell: (row) => (
+          <div className="flex gap-2">
+            <Link 
+              href={`/staff/${row.id}${schoolId ? `?from=/users` : ''}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Edit
-            </Button>
-          ) : null,
+              View
+            </Link>
+            {canShowEditUser(user, row) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditName(row.name ?? '');
+                  setEditPassword('');
+                  setEditDirectorSchoolId(row.role === 'DIRECTOR' ? row.schoolId ?? null : null);
+                  setEditTarget(row);
+                }}
+              >
+                Edit
+              </Button>
+            )}
+          </div>
+        ),
       },
     ];
-  }, [isAdmin, isSchoolAdmin, isDirector, isBranchDirector, user]);
+  }, [isAdmin, isSchoolAdmin, isDirector, isBranchDirector, user, schoolId]);
 
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,6 +399,15 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
             </Button>
           ) : null
         }
+      />
+
+      <UserSearchFilters 
+        schoolId={schoolId || undefined} 
+        filters={filters} 
+        onFiltersChange={(f) => {
+          setFilters(f);
+          setPage(1); // Reset page on filter change
+        }} 
       />
 
       <Dialog open={dialogOpen} onOpenChange={(open) => (open ? setDialogOpen(true) : closeInviteDialog())}>
@@ -620,7 +693,7 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
             </DataTable.Body>
           </DataTable.Table>
         </DataTable.Card>
-      ) : !users?.length ? (
+      ) : users.length === 0 ? (
         <EmptyState
           icon={UserPlus}
           title="No users yet"
@@ -636,16 +709,44 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
           }
         />
       ) : (
-        <DataTable.Card>
-          <DataTable.Table>
-            <DataTable.Header>
-              <DataTable.ColumnHeaderRow columns={columns} />
-            </DataTable.Header>
-            <DataTable.Body>
-              <DataTable.ColumnRows data={users} columns={columns} getRowKey={(u) => u.id} />
-            </DataTable.Body>
-          </DataTable.Table>
-        </DataTable.Card>
+        <div className="space-y-4">
+          <DataTable.Card>
+            <DataTable.Table>
+              <DataTable.Header>
+                <DataTable.ColumnHeaderRow columns={columns} />
+              </DataTable.Header>
+              <DataTable.Body>
+                <DataTable.ColumnRows data={users} columns={columns} getRowKey={(u) => u.id} />
+              </DataTable.Body>
+            </DataTable.Table>
+          </DataTable.Card>
+
+          {meta && meta.lastPage > 1 && (
+            <div className="flex items-center justify-between px-2">
+              <p className="text-sm text-muted-foreground">
+                Showing page {meta.page} of {meta.lastPage} ({meta.total} users total)
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={meta.page <= 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(meta.lastPage, p + 1))}
+                  disabled={meta.page >= meta.lastPage}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
