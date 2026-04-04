@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Building2, GraduationCap, FileText, ChevronRight, Users } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DashboardAnalytics } from '@/components/data/dashboard-analytics';
+import { ActionCenterWidget } from '@/components/dashboard/action-center-widget';
 import { cn } from '@/lib/utils';
 import { Shield } from 'lucide-react';
 
@@ -159,7 +160,17 @@ export default function DashboardPage() {
       ) : null}
 
       {showPersonalDocs ? <MyDocumentStats /> : null}
-      {showAnalytics ? <DashboardAnalytics /> : null}
+      
+      {showAnalytics && (
+        <div className="space-y-6">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Action Center</h2>
+          <ActionCenterWidget />
+          <div className="pt-4">
+            <h2 className="mb-6 text-sm font-medium text-muted-foreground uppercase tracking-widest">Trends & History</h2>
+            <DashboardAnalytics />
+          </div>
+        </div>
+      )}
 
       {roleLinks.length > 0 ? (
         <div>

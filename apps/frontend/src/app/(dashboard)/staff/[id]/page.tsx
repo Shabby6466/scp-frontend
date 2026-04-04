@@ -7,8 +7,10 @@ import { useGetUserDetailQuery, useUpdateUserMutation } from '@/store/features/u
 import { useGetDocumentTypesQuery } from '@/store/features/documentTypeApi';
 import { toast, toastError } from '@/lib/toast';
 import { putFileToPresignedUrl } from '@/lib/presigned-upload';
-import { usePresignMutation, useCompleteDocumentMutation, useLazyGetDownloadUrlQuery, useVerifyDocumentMutation } from '@/store/features/documentApi';
+import { usePresignMutation, useCompleteDocumentMutation, useLazyGetDownloadUrlQuery, useVerifyDocumentMutation, useVerifyManyMutation, useNudgeMutation } from '@/store/features/documentApi';
 import { useAppSelector } from '@/store/hooks';
+import { DataTable } from '@/components/data/data-table';
+import { BulkActionToolbar } from '@/components/data/bulk-action-toolbar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DocumentChecklistRow } from '@/components/documents/document-checklist-row';
 import { DocumentUploadMetadataDialog } from '@/components/documents/document-upload-metadata-dialog';
@@ -21,6 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { Calendar, User as UserIcon, Mail, Building, Briefcase, FileText, CheckCircle2, Clock } from 'lucide-react';
 import { RoleBadge } from '@/components/users/role-badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export default function StaffDocumentsPage() {
   const params = useParams();
@@ -39,6 +42,8 @@ export default function StaffDocumentsPage() {
   const [completeDoc] = useCompleteDocumentMutation();
   const [getDownloadUrl] = useLazyGetDownloadUrlQuery();
   const [verifyDoc] = useVerifyDocumentMutation();
+  const [verifyMany] = useVerifyManyMutation();
+  const [nudge] = useNudgeMutation();
 
   if (isLoadingDetail || !userDetail) {
     return (
@@ -102,6 +107,24 @@ export default function StaffDocumentsPage() {
   const handleDownload = async (docId: string) => {
     const url = (await getDownloadUrl(docId).unwrap()) as string;
     if (url) window.open(url, '_blank');
+  };
+
+  const handleVerifyMany = async (ids: string[]) => {
+    try {
+      await verifyMany(ids).unwrap();
+      toast(`Verified ${ids.length} documents`);
+    } catch (err) {
+      toastError(err, 'Bulk verification failed');
+    }
+  };
+
+  const handleNudge = async (documentTypeId: string, label: string) => {
+    try {
+      await nudge({ ownerUserId: teacherUserId, documentTypeId }).unwrap();
+      toast(`Reminder sent for ${label}`);
+    } catch (err) {
+      toastError(err, 'Failed to send reminder');
+    }
   };
 
   const from = sanitizeFromPath(searchParams.get('from'));
@@ -232,24 +255,37 @@ export default function StaffDocumentsPage() {
                   <p className="text-xs text-muted-foreground/60">An administrator can assign document types from the school settings.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-border/50">
-                  {userDetail.requiredDocTypes.map((dt) => {
-                    const doc = docsByType.get(dt.id);
-                    return (
-                      <DocumentChecklistRow
-                        key={dt.id}
-                        documentTypeName={dt.name}
-                        mandatory={dt.isMandatory}
-                        doc={doc}
-                        uploading={uploadingTypeId === dt.id}
-                        canVerify={canVerify}
-                        onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
-                        onDownload={() => doc && handleDownload(doc.id)}
-                        onVerify={() => doc && void verifyDoc(doc.id)}
-                      />
-                    );
-                  })}
-                </div>
+                <DataTable.SelectionProvider dataIds={userDetail.ownerDocuments.filter(d => !d.verifiedAt).map(d => d.id)}>
+                   <div className="divide-y divide-border/50">
+                    {userDetail.requiredDocTypes.map((dt) => {
+                      const doc = docsByType.get(dt.id);
+                      return (
+                        <div key={dt.id} className="flex items-center gap-2 px-4 group/row">
+                          {canVerify && doc && !doc.verifiedAt && (
+                            <DataTable.SelectionCell id={doc.id} />
+                          )}
+                          <div className={cn("flex-1", !canVerify || !doc || doc.verifiedAt ? "" : "pl-0")}>
+                            <DocumentChecklistRow
+                              documentTypeName={dt.name}
+                              mandatory={dt.isMandatory}
+                              doc={doc}
+                              uploading={uploadingTypeId === dt.id}
+                              canVerify={canVerify}
+                              onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
+                              onDownload={() => doc && handleDownload(doc.id)}
+                              onVerify={() => doc && void verifyDoc(doc.id)}
+                              onNudge={canVerify && !doc?.verifiedAt ? () => handleNudge(dt.id, dt.name) : undefined}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <BulkActionToolbar 
+                    label="unverified documents" 
+                    onVerify={handleVerifyMany} 
+                  />
+                </DataTable.SelectionProvider>
               )}
             </CardContent>
           </Card>

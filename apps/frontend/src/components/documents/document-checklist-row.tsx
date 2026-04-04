@@ -7,7 +7,7 @@ import type { Document } from '@/store/features/documentApi';
 import { DocumentExpiryStatusBadge } from '@/components/documents/document-expiry-status-badge';
 import { formatDocumentDate, getDocumentExpiryStatus } from '@/lib/document-expiry-status';
 import { cn } from '@/lib/utils';
-import { Check, Download, FileText, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Check, Download, FileText, AlertCircle, ShieldCheck, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export interface DocumentChecklistRowProps {
@@ -20,6 +20,7 @@ export interface DocumentChecklistRowProps {
   onUpload: (file: File) => void;
   onDownload: () => void;
   onVerify: () => void;
+  onNudge?: () => void;
 }
 
 export function DocumentChecklistRow({
@@ -31,6 +32,7 @@ export function DocumentChecklistRow({
   onUpload,
   onDownload,
   onVerify,
+  onNudge,
 }: DocumentChecklistRowProps) {
   const isMandatory = mandatory === true;
   const expiryStatus = doc ? getDocumentExpiryStatus(doc.expiresAt) : null;
@@ -208,6 +210,19 @@ export function DocumentChecklistRow({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {canVerify && !isVerified && onNudge && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onNudge}
+              className="h-9 px-3 rounded-full text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 transition-colors"
+              title="Send Reminder"
+            >
+              <Bell className="mr-1.5 h-3.5 w-3.5" />
+              Remind
+            </Button>
+          )}
         </div>
       </div>
     </motion.div>

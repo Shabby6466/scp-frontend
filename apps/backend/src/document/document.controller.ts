@@ -188,4 +188,33 @@ export class DocumentController {
   ) {
     return this.documentService.getDownloadUrl(id, user);
   }
+
+  @Patch('verify-many')
+  verifyMany(
+    @Body('ids') ids: string[],
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.verifyMany(ids, user);
+  }
+
+  @Post('owner/:ownerUserId/type/:documentTypeId/nudge')
+  nudge(
+    @Param('ownerUserId') ownerUserId: string,
+    @Param('documentTypeId') documentTypeId: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentService.nudge(ownerUserId, documentTypeId, user);
+  }
 }

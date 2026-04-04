@@ -71,4 +71,14 @@ export class AnalyticsController {
   ) {
     return this.analytics.expiryByType(user, documentTypeId);
   }
+
+  @Get('compliance/summary')
+  getComplianceSummary(@CurrentUser() user: any) {
+    return this.analytics.getComplianceSummary(user);
+  }
+
+  @Get('compliance/pending-actions')
+  getPendingActions(@CurrentUser() user: any) {
+    return this.analytics.getPendingActions(user);
+  }
 }

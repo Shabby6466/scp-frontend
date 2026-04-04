@@ -215,4 +215,133 @@ export class AnalyticsService {
       })),
     };
   }
+
+  async getComplianceSummary(user: CurrentUser) {
+    const scope = this.resolveScope(user);
+    const scopeSql = this.scopeWhereSql(scope);
+
+    // 1. Get counts of users by role in this scope
+    const roleStats = await this.prisma.user.groupBy({
+      by: ['role'],
+      where:
+        scope.kind === 'global'
+          ? {}
+          : scope.kind === 'school'
+            ? { branch: { schoolId: scope.schoolId } }
+            : { branchId: scope.branchId },
+      _count: true,
+    });
+
+    const roleCounts = roleStats.reduce(
+      (acc, s) => ({ ...acc, [s.role]: s._count }),
+      {} as Record<UserRole, number>,
+    );
+
+    // 2. Get mandatory document types and their target roles
+    const docTypes = await this.prisma.documentType.findMany({
+      where: { isMandatory: true },
+      select: { id: true, targetRole: true },
+    });
+
+    // 3. Calculate total required documents (sum of roleCount * mandatoryTypesForThatRole)
+    let totalRequired = 0;
+    docTypes.forEach((dt) => {
+      totalRequired += roleCounts[dt.targetRole as UserRole] || 0;
+    });
+
+    // 4. Get count of CURRENTLY UPLOADED & VERIFIED documents in this scope
+    const verifiedCount = await this.prisma.document.count({
+      where: {
+        verifiedAt: { not: null },
+        expiresAt: { gt: new Date() }, // Only count non-expired
+        ownerUser:
+          scope.kind === 'global'
+            ? {}
+            : scope.kind === 'school'
+              ? { branch: { schoolId: scope.schoolId } }
+              : { branchId: scope.branchId },
+      },
+    });
+
+    // 5. Get count of documents AWAITING VERIFICATION
+    const pendingVerification = await this.prisma.document.count({
+      where: {
+        verifiedAt: null,
+        ownerUser:
+          scope.kind === 'global'
+            ? {}
+            : scope.kind === 'school'
+              ? { branch: { schoolId: scope.schoolId } }
+              : { branchId: scope.branchId },
+      },
+    });
+
+    // 6. Calculate Score
+    const score =
+      totalRequired > 0
+        ? Math.round((verifiedCount / totalRequired) * 100)
+        : 100;
+
+    return {
+      score,
+      totalRequired,
+      verifiedCount,
+      pendingVerification,
+    };
+  }
+
+  async getPendingActions(user: CurrentUser) {
+    const scope = this.resolveScope(user);
+
+    // 1. Get 5 most recent unverified uploads
+    const recentUploads = await this.prisma.document.findMany({
+      where: {
+        verifiedAt: null,
+        ownerUser:
+          scope.kind === 'global'
+            ? {}
+            : scope.kind === 'school'
+              ? { branch: { schoolId: scope.schoolId } }
+              : { branchId: scope.branchId },
+      },
+      include: {
+        ownerUser: { select: { id: true, name: true, email: true } },
+        documentType: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    // 2. Identify 5 staff members with most missing mandatory docs
+    // This is more complex, for now we will get users who have 0 verified docs but have mandatory types
+    const atRiskStaff = await this.prisma.user.findMany({
+      where: {
+        role: { in: [UserRole.TEACHER, UserRole.STUDENT] },
+        branchId:
+          scope.kind === 'branch' || scope.kind === 'teacher'
+            ? scope.branchId
+            : undefined,
+        branch:
+          scope.kind === 'school' ? { schoolId: scope.schoolId } : undefined,
+        ownerDocuments: {
+          none: { verifiedAt: { not: null } },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        _count: {
+          select: { ownerDocuments: true },
+        },
+      },
+      take: 5,
+    });
+
+    return {
+      recentUploads,
+      atRiskStaff,
+    };
+  }
 }

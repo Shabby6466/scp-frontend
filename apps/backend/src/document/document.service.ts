@@ -2,6 +2,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
@@ -25,6 +26,7 @@ type EntityScope = { schoolId: string; branchId: string };
 
 @Injectable()
 export class DocumentService {
+  private readonly logger = new Logger(DocumentService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -359,6 +361,44 @@ export class DocumentService {
     }
 
     return updated;
+  }
+
+  async verifyMany(documentIds: string[], user: CurrentUser) {
+    const results = [];
+    for (const id of documentIds) {
+      try {
+        const updated = await this.verify(id, user);
+        results.push(updated);
+      } catch (err: any) {
+        // Log individual failures but continue bulk process
+        this.logger.error(`Failed to verify document ${id}: ${err.message}`);
+      }
+    }
+    return { count: results.length, total: documentIds.length };
+  }
+
+  async nudge(ownerUserId: string, documentTypeId: string, user: CurrentUser) {
+    await this.ensureCanAccessDocumentOwner(ownerUserId, user);
+
+    const owner = await this.prisma.user.findUniqueOrThrow({
+      where: { id: ownerUserId },
+      select: { email: true, name: true },
+    });
+
+    const docType = await this.prisma.documentType.findUniqueOrThrow({
+      where: { id: documentTypeId },
+      select: { name: true },
+    });
+
+    if (owner.email) {
+      await this.mailer.sendDocumentActionReminder(
+        owner.email,
+        owner.name ?? owner.email,
+        docType.name,
+      );
+    }
+
+    return { success: true };
   }
 
   private async syncTeacherClearanceFromVerifiedDocs(ownerUserId: string) {

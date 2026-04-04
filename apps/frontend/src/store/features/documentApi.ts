@@ -130,6 +130,20 @@ export const documentApi = api.injectEndpoints({
       }),
       invalidatesTags: ['Document', 'Branch', 'Analytics'],
     }),
+    verifyMany: builder.mutation<{ count: number; total: number }, string[]>({
+      query: (ids) => ({
+        url: '/documents/verify-many',
+        method: 'PATCH',
+        body: { ids },
+      }),
+      invalidatesTags: ['Document', 'Branch', 'Analytics'],
+    }),
+    nudge: builder.mutation<{ success: boolean }, { ownerUserId: string; documentTypeId: string }>({
+      query: ({ ownerUserId, documentTypeId }) => ({
+        url: `/documents/owner/${ownerUserId}/type/${documentTypeId}/nudge`,
+        method: 'POST',
+      }),
+    }),
     searchDocuments: builder.query<Document[], SearchDocumentParams>({
       query: (params) => ({ url: '/documents/search', params }),
       providesTags: ['Document'],
@@ -147,5 +161,7 @@ export const {
   useExportPerFormPdfMutation,
   useLazyGetDownloadUrlQuery,
   useVerifyDocumentMutation,
+  useVerifyManyMutation,
+  useNudgeMutation,
   useSearchDocumentsQuery,
 } = documentApi;
