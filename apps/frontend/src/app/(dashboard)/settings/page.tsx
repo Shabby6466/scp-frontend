@@ -7,12 +7,12 @@ import {
   useGetAppSettingsQuery,
   useUpdateAppSettingsMutation,
 } from '@/store/features/settingsApi';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { InlineLoading } from '@/components/inline-loading';
+import { InlineLoading } from '@/components/layout/inline-loading';
 import { toast, toastError } from '@/lib/toast';
 import { Settings2 } from 'lucide-react';
 
@@ -35,6 +35,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (data) {
+      /* eslint-disable react-hooks/set-state-in-effect -- hydrate toggles from RTK Query when settings load or refetch */
       setOtpEnabled(data.otpEmailVerificationEnabled);
       setRegistrationEnabled(data.selfRegistrationEnabled);
     }

@@ -3,7 +3,7 @@
 import { useAppSelector } from '@/store/hooks';
 import { useRouter } from 'next/navigation';
 import { useGetBranchQuery } from '@/store/features/branchApi';
-import { InlineLoading } from '@/components/inline-loading';
+import { InlineLoading } from '@/components/layout/inline-loading';
 
 export default function MyBranchPage() {
   const user = useAppSelector((state) => state.auth.user);

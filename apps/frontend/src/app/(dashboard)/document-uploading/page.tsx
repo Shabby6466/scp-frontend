@@ -13,8 +13,8 @@ import {
 import { putFileToPresignedUrl } from '@/lib/presigned-upload';
 import { toast, toastError } from '@/lib/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DocumentChecklistRow } from '@/components/document-checklist-row';
-import { DocumentUploadMetadataDialog } from '@/components/document-upload-metadata-dialog';
+import { DocumentChecklistRow } from '@/components/documents/document-checklist-row';
+import { DocumentUploadMetadataDialog } from '@/components/documents/document-upload-metadata-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 

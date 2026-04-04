@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import path from "node:path";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@repo/shared", "@repo/ui"],
+  transpilePackages: ["@repo/shared"],
   turbopack: {
     root: path.resolve(__dirname, "../.."),
   },

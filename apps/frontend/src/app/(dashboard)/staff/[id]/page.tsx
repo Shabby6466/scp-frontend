@@ -9,10 +9,10 @@ import { putFileToPresignedUrl } from '@/lib/presigned-upload';
 import { usePresignMutation, useCompleteDocumentMutation, useLazyGetDownloadUrlQuery, useVerifyDocumentMutation } from '@/store/features/documentApi';
 import { useAppSelector } from '@/store/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DocumentChecklistRow } from '@/components/document-checklist-row';
-import { DocumentUploadMetadataDialog } from '@/components/document-upload-metadata-dialog';
-import { PageBackLink } from '@/components/page-back-link';
-import { PageHeader } from '@/components/page-header';
+import { DocumentChecklistRow } from '@/components/documents/document-checklist-row';
+import { DocumentUploadMetadataDialog } from '@/components/documents/document-upload-metadata-dialog';
+import { PageBackLink } from '@/components/layout/page-back-link';
+import { PageHeader } from '@/components/layout/page-header';
 import { sanitizeFromPath } from '@/lib/safe-from-path';
 
 export default function StaffDocumentsPage() {

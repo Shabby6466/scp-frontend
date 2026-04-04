@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LandingToolbar } from '@/components/landing-toolbar';
+import { LandingToolbar } from '@/components/layout/landing-toolbar';
 import {
   Shield,
   FileCheck,

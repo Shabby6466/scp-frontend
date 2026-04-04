@@ -37,8 +37,8 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { DataTable, type DataTableColumnDef } from '@/components/data-table';
-import { DocumentExpiryStatusBadge } from '@/components/document-expiry-status-badge';
+import { DataTable, type DataTableColumnDef } from '@/components/data/data-table';
+import { DocumentExpiryStatusBadge } from '@/components/documents/document-expiry-status-badge';
 import { TrendingUp, FileStack, Users, AlertTriangle } from 'lucide-react';
 
 const ANALYTICS_ROLES = new Set([

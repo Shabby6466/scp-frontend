@@ -23,14 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type DataTableColumnDef } from '@/components/data-table';
+import { DataTable, type DataTableColumnDef } from '@/components/data/data-table';
 import type { UserSummary } from '@/store/features/userApi';
-import { EmptyState } from '@/components/empty-state';
-import { PageBackLink } from '@/components/page-back-link';
-import { PageHeader } from '@/components/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
+import { PageBackLink } from '@/components/layout/page-back-link';
+import { PageHeader } from '@/components/layout/page-header';
 import { toast, toastError } from '@/lib/toast';
 import { GraduationCap, UserPlus } from 'lucide-react';
-import { InlineLoading } from '@/components/inline-loading';
+import { InlineLoading } from '@/components/layout/inline-loading';
 
 const TEACHER_COLUMNS: DataTableColumnDef<UserSummary>[] = [
   {

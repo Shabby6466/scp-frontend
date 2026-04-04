@@ -15,12 +15,12 @@ import {
 } from '@/store/features/documentApi';
 import { useAppSelector } from '@/store/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DocumentChecklistRow } from '@/components/document-checklist-row';
-import { DocumentUploadMetadataDialog } from '@/components/document-upload-metadata-dialog';
-import { PageBackLink } from '@/components/page-back-link';
-import { PageHeader } from '@/components/page-header';
-import { InlineLoading } from '@/components/inline-loading';
-import { EmptyState } from '@/components/empty-state';
+import { DocumentChecklistRow } from '@/components/documents/document-checklist-row';
+import { DocumentUploadMetadataDialog } from '@/components/documents/document-upload-metadata-dialog';
+import { PageBackLink } from '@/components/layout/page-back-link';
+import { PageHeader } from '@/components/layout/page-header';
+import { InlineLoading } from '@/components/layout/inline-loading';
+import { EmptyState } from '@/components/layout/empty-state';
 import { FileCheck } from 'lucide-react';
 
 export default function FacilityDocsPage() {

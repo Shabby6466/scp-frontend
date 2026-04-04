@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field';
-import { AuthLayout } from '@/components/auth-layout';
+import { AuthLayout } from '@/components/auth/auth-layout';
 import { useGetPublicSettingsQuery } from '@/store/features/settingsApi';
 import { UserPlus, Eye, EyeOff } from 'lucide-react';
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Instrument_Serif } from "next/font/google";
-import { Providers } from "@/components/providers";
+import { Providers } from "@/components/layout/providers";
 import "./globals.css";
 
 const inter = Inter({

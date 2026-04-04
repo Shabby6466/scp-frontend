@@ -27,12 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type DataTableColumnDef } from '@/components/data-table';
+import { DataTable, type DataTableColumnDef } from '@/components/data/data-table';
 import type { CreateUserDto, UserSummary } from '@/store/features/userApi';
-import { RoleBadge } from '@/components/role-badge';
-import { EmptyState } from '@/components/empty-state';
+import { RoleBadge } from '@/components/users/role-badge';
+import { EmptyState } from '@/components/layout/empty-state';
 import { toast, toastError } from '@/lib/toast';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { UserPlus } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';

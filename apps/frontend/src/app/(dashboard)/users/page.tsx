@@ -3,8 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/store/hooks';
-import { SchoolUsersPanel } from '@/components/school-users-panel';
-import { InlineLoading } from '@/components/inline-loading';
+import { SchoolUsersPanel } from '@/components/users/school-users-panel';
+import { InlineLoading } from '@/components/layout/inline-loading';
 
 /** Platform admin only: global user list and invites. School directors use Teachers (and other flows) instead. */
 export default function UsersPage() {

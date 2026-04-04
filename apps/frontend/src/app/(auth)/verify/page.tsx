@@ -23,7 +23,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Field, FieldContent, FieldError, FieldLabel } from '@/components/ui/field';
 import { toast, toastError } from '@/lib/toast';
-import { AuthLayout } from '@/components/auth-layout';
+import { AuthLayout } from '@/components/auth/auth-layout';
 import { getPostLoginPath } from '@/lib/post-login-path';
 import { Shield } from 'lucide-react';
 

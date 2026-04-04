@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast, toastError } from '@/lib/toast';
-import { PageBackLink } from '@/components/page-back-link';
+import { PageBackLink } from '@/components/layout/page-back-link';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
 

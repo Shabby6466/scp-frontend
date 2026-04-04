@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/store/hooks';
-import { InlineLoading } from '@/components/inline-loading';
+import { InlineLoading } from '@/components/layout/inline-loading';
 
 /** @deprecated Use `/school/teachers` (directors) or `/schools/[schoolId]/teachers` (admins). */
 export default function TeachersLegacyRedirectPage() {

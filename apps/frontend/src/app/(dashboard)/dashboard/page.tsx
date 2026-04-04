@@ -8,14 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { PageHeader } from '@/components/page-header';
-import { DashboardAnalytics } from '@/components/dashboard-analytics';
+import { PageHeader } from '@/components/layout/page-header';
+import { DashboardAnalytics } from '@/components/data/dashboard-analytics';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Building2, GraduationCap, FileText, ChevronRight } from 'lucide-react';
 
 export default function DashboardPage() {
   const user = useAppSelector((state) => state.auth.user);
-  const isDirector = user?.role === 'DIRECTOR';
   const isBranchDirector = user?.role === 'BRANCH_DIRECTOR';
   const branchId = user?.branchId ?? null;
 

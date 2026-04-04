@@ -3,19 +3,19 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
-import { AuthGuard } from '@/components/auth-guard';
-import { AuthUserSync } from '@/components/auth-user-sync';
-import { AppSidebar } from '@/components/app-sidebar';
-import { Breadcrumbs } from '@/components/breadcrumbs';
+import { AuthGuard } from '@/components/auth/auth-guard';
+import { AuthUserSync } from '@/components/auth/auth-user-sync';
+import { AppSidebar } from '@/components/layout/app-sidebar';
+import { Breadcrumbs } from '@/components/layout/breadcrumbs';
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { ModeToggle } from '@/components/mode-toggle';
+import { ModeToggle } from '@/components/layout/mode-toggle';
 import { Button } from '@/components/ui/button';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { RoleBadge } from '@/components/role-badge';
+import { RoleBadge } from '@/components/users/role-badge';
 import { logout } from '@/store/features/authSlice';
 import { useLogoutMutation } from '@/store/features/authApi';
 

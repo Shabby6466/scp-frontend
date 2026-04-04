@@ -2,9 +2,9 @@
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { FileUploadControl } from '@/components/file-upload-control';
+import { FileUploadControl } from '@/components/documents/file-upload-control';
 import type { Document } from '@/store/features/documentApi';
-import { DocumentExpiryStatusBadge } from '@/components/document-expiry-status-badge';
+import { DocumentExpiryStatusBadge } from '@/components/documents/document-expiry-status-badge';
 import { formatDocumentDate, getDocumentExpiryStatus } from '@/lib/document-expiry-status';
 import { cn } from '@/lib/utils';
 import { Check, Download } from 'lucide-react';

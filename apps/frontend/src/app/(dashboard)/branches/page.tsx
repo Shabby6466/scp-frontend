@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGetSchoolsQuery } from '@/store/features/schoolApi';
 import { useAppSelector } from '@/store/hooks';
-import { PageSkeleton } from '@/components/page-skeleton';
-import { PageBackLink } from '@/components/page-back-link';
+import { PageSkeleton } from '@/components/layout/page-skeleton';
+import { PageBackLink } from '@/components/layout/page-back-link';
 
 /**
  * Resolves the current user's school from the API and opens the branch list.

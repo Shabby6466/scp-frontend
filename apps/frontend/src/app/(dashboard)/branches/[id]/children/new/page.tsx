@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PageBackLink } from '@/components/page-back-link';
+import { PageBackLink } from '@/components/layout/page-back-link';
 
 export default function NewChildRedirectPage() {
   const router = useRouter();

@@ -9,15 +9,15 @@ import {
   useAssignDocumentTypeUsersMutation,
   useGetDocumentTypesQuery,
 } from '@/store/features/documentTypeApi';
-import { PageBackLink } from '@/components/page-back-link';
-import { PageHeader } from '@/components/page-header';
-import { DataTable, type DataTableColumnDef } from '@/components/data-table';
+import { PageBackLink } from '@/components/layout/page-back-link';
+import { PageHeader } from '@/components/layout/page-header';
+import { DataTable, type DataTableColumnDef } from '@/components/data/data-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { EmptyState } from '@/components/empty-state';
+import { EmptyState } from '@/components/layout/empty-state';
 import { sanitizeFromPath } from '@/lib/safe-from-path';
 import { toast, toastError } from '@/lib/toast';
 import { GraduationCap } from 'lucide-react';

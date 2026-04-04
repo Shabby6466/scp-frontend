@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { useGetMeQuery } from '@/store/features/authApi';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldContent, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { RoleBadge } from '@/components/role-badge';
+import { RoleBadge } from '@/components/users/role-badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InlineLoading } from '@/components/inline-loading';
+import { InlineLoading } from '@/components/layout/inline-loading';
 import { Eye, EyeOff, Info } from 'lucide-react';
 
 /** Placeholder only — the real password is never sent from the server. */

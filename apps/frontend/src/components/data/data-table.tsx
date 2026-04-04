@@ -178,7 +178,7 @@ function DataTableColumnRows<T>({
  *
  * @example
  * ```tsx
- * import { DataTable } from '@/components/data-table';
+ * import { DataTable } from '@/components/data/data-table';
  *
  * <DataTable.Card title="Users" description="People in this school." actions={<Link className={buttonVariants({ size: 'sm' })} href="/users">Add user</Link>}>
  *   <DataTable.Table>

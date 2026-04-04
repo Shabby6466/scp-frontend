@@ -41,8 +41,10 @@ export function DocumentUploadMetadataDialog({
   const [issuedAt, setIssuedAt] = useState(todayDateInputValue);
   const [expiresAt, setExpiresAt] = useState('');
 
+  // Controlled `open` from parent does not always invoke `onOpenChange(true)`; reset when dialog opens.
   useEffect(() => {
     if (open) {
+      /* eslint-disable react-hooks/set-state-in-effect -- sync fields when opening with a new file (parent-driven open) */
       setIssuedAt(todayDateInputValue());
       setExpiresAt('');
     }

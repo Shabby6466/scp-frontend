@@ -9,7 +9,7 @@ import {
 } from '@/store/features/documentApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PageBackLink } from '@/components/page-back-link';
+import { PageBackLink } from '@/components/layout/page-back-link';
 import { toastError } from '@/lib/toast';
 
 export default function PerFormDetailPage() {

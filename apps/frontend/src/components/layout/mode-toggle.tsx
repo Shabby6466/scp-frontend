@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { useTheme } from 'next-themes';
-import { buttonVariants } from '@/lib/button-variants';
+import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,

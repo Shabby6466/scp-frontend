@@ -7,13 +7,13 @@ import {
   type ComplianceTeacherRow,
   useGetBranchCompliancePeopleQuery,
 } from '@/store/features/branchApi';
-import { PageBackLink } from '@/components/page-back-link';
-import { PageHeader } from '@/components/page-header';
+import { PageBackLink } from '@/components/layout/page-back-link';
+import { PageHeader } from '@/components/layout/page-header';
 import { buttonVariants } from '@/lib/button-variants';
 import { cn } from '@/lib/utils';
-import { DataTable, type DataTableColumnDef } from '@/components/data-table';
+import { DataTable, type DataTableColumnDef } from '@/components/data/data-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { InlineLoading } from '@/components/inline-loading';
+import { InlineLoading } from '@/components/layout/inline-loading';
 
 function teacherComplianceColumns(
   branchId: string,

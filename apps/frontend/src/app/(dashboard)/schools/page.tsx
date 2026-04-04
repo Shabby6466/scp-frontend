@@ -32,11 +32,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ConfirmDialog } from '@/components/confirm-dialog';
-import { EmptyState } from '@/components/empty-state';
-import { PageSkeleton } from '@/components/page-skeleton';
+import { ConfirmDialog } from '@/components/data/confirm-dialog';
+import { EmptyState } from '@/components/layout/empty-state';
+import { PageSkeleton } from '@/components/layout/page-skeleton';
 import { toast, toastError } from '@/lib/toast';
-import { PageHeader } from '@/components/page-header';
+import { PageHeader } from '@/components/layout/page-header';
 import { Building2, Plus, Users, Trash2 } from 'lucide-react';
 
 export default function SchoolsPage() {

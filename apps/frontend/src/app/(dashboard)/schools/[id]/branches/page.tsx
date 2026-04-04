@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { PageBackLink } from '@/components/page-back-link';
-import { PageHeader } from '@/components/page-header';
+import { PageBackLink } from '@/components/layout/page-back-link';
+import { PageHeader } from '@/components/layout/page-header';
 import { useGetSchoolQuery } from '@/store/features/schoolApi';
 import {
   useGetBranchesQuery,
@@ -33,8 +33,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { EmptyState } from '@/components/empty-state';
-import { PageSkeleton } from '@/components/page-skeleton';
+import { EmptyState } from '@/components/layout/empty-state';
+import { PageSkeleton } from '@/components/layout/page-skeleton';
 import { toast, toastError } from '@/lib/toast';
 import { Plus, Building2, Pencil } from 'lucide-react';
 
