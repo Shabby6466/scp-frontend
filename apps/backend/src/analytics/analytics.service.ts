@@ -185,14 +185,14 @@ export class AnalyticsService {
           CASE
             WHEN d."expiresAt" IS NOT NULL
               AND d."expiresAt"::date >= CURRENT_DATE
-              AND d."expiresAt"::date <= CURRENT_DATE + ${nearDays}
+              AND d."expiresAt"::date <= CURRENT_DATE + (${nearDays}::text || ' days')::interval
             THEN 1 ELSE 0
           END
         )::int AS "nearExpiry",
         SUM(
           CASE
             WHEN d."expiresAt" IS NOT NULL
-              AND d."expiresAt"::date > CURRENT_DATE + ${nearDays}
+              AND d."expiresAt"::date > CURRENT_DATE + (${nearDays}::text || ' days')::interval
             THEN 1 ELSE 0
           END
         )::int AS active

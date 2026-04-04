@@ -8,11 +8,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { MyDocumentStats } from '@/components/my-document-stats';
+import { MyDocumentStats } from '@/components/documents/my-document-stats';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Building2, GraduationCap, FileText, ChevronRight, Users } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { DashboardAnalytics } from '@/components/data/dashboard-analytics';
+import { cn } from '@/lib/utils';
+import { Shield } from 'lucide-react';
 
 const ANALYTICS_ROLES = new Set(['ADMIN', 'SCHOOL_ADMIN', 'DIRECTOR', 'BRANCH_DIRECTOR']);
 const PERSONAL_DOC_ROLES = new Set(['TEACHER', 'STUDENT']);
@@ -110,6 +112,42 @@ export default function DashboardPage() {
         title="Dashboard"
         description={`Welcome back, ${user?.name ?? user?.email}`}
       />
+
+      {/* Role Context Banner */}
+      <div className={cn(
+        "relative overflow-hidden rounded-[2rem] border p-8 shadow-sm transition-all duration-500",
+        user?.role === 'ADMIN' && "bg-slate-950 text-white border-white/10",
+        (user?.role === 'SCHOOL_ADMIN' || user?.role === 'DIRECTOR') && "bg-indigo-600 text-white border-indigo-500",
+        user?.role === 'BRANCH_DIRECTOR' && "bg-emerald-600 text-white border-emerald-500",
+        (user?.role === 'TEACHER' || user?.role === 'STUDENT') && "bg-secondary/50 border-border"
+      )}>
+        <div className="relative z-10 flex flex-col gap-2">
+          <h2 className="text-2xl font-bold tracking-tight">
+            {user?.role === 'ADMIN' && "Platform Command Center"}
+            {(user?.role === 'SCHOOL_ADMIN' || user?.role === 'DIRECTOR') && "School Oversight"}
+            {user?.role === 'BRANCH_DIRECTOR' && "Branch Management"}
+            {(user?.role === 'TEACHER' || user?.role === 'STUDENT') && "Personal Portal"}
+          </h2>
+          <p className={cn(
+            "text-sm font-medium max-w-lg",
+            (user?.role === 'ADMIN' || user?.role === 'SCHOOL_ADMIN' || user?.role === 'DIRECTOR' || user?.role === 'BRANCH_DIRECTOR') 
+              ? "text-white/80" 
+              : "text-muted-foreground"
+          )}>
+            {user?.role === 'ADMIN' && "Manage global schools, users, and platform-wide compliance standards."}
+            {(user?.role === 'SCHOOL_ADMIN' || user?.role === 'DIRECTOR') && "Monitor branch performance, staff compliance, and enrollment health."}
+            {user?.role === 'BRANCH_DIRECTOR' && `Overseeing ${user.branchId ? 'your branch' : 'assigned branch'} documents and local staff.`}
+            {user?.role === 'TEACHER' && "Submit your compliance documents and view your class assignments."}
+            {user?.role === 'STUDENT' && "Manage your enrollment documents and profile details."}
+          </p>
+        </div>
+        <div className="absolute -right-8 -top-8 h-32 w-32 rotate-12 opacity-10">
+          {user?.role === 'ADMIN' && <Shield className="h-full w-full" />}
+          {(user?.role === 'SCHOOL_ADMIN' || user?.role === 'DIRECTOR') && <Building2 className="h-full w-full" />}
+          {user?.role === 'BRANCH_DIRECTOR' && <Users className="h-full w-full" />}
+          {(user?.role === 'TEACHER' || user?.role === 'STUDENT') && <FileText className="h-full w-full" />}
+        </div>
+      </div>
 
       {branchDirectorAwaitingBranch ? (
         <Alert>

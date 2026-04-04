@@ -105,7 +105,18 @@ export function DocumentChecklistRow({
               >
                 {isMandatory ? 'Required' : 'Optional'}
               </Badge>
+              {expiryStatus === 'expired' && (
+                <Badge variant="destructive" className="h-5 text-[10px] animate-pulse">
+                  Expired
+                </Badge>
+              )}
             </div>
+
+            {doc?.fileName && (
+              <p className="text-[11px] text-muted-foreground/70 truncate max-w-[200px] font-mono">
+                {doc.fileName}
+              </p>
+            )}
 
             <AnimatePresence mode="wait">
               {doc ? (

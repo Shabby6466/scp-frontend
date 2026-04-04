@@ -42,6 +42,15 @@ import {
   Users,
 } from 'lucide-react';
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Platform Admin',
+  SCHOOL_ADMIN: 'School Admin',
+  DIRECTOR: 'School Director',
+  BRANCH_DIRECTOR: 'Branch Director',
+  TEACHER: 'Teacher',
+  STUDENT: 'Student',
+};
+
 const ADMIN_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/schools', label: 'Schools', icon: Building2 },
@@ -52,16 +61,15 @@ const ADMIN_NAV: { href: string; label: string; icon: LucideIcon }[] = [
 ];
 
 const TEACHER_NAV: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: Building2 },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/my-branch', label: 'My Branch', icon: Building2 },
-  { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
-  { href: '/my-staff-file', label: 'My Documents', icon: FileText },
+  { href: '/document-uploading', label: 'My Documents', icon: FileText },
 ];
 
 const STUDENT_NAV: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: Building2 },
-  { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
-  { href: '/my-children', label: 'My student', icon: GraduationCap },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/document-uploading', label: 'My Documents', icon: FileText },
+  { href: '/my-children', label: 'My profile', icon: GraduationCap },
 ];
 
 function schoolOwnerNav(user: AuthUser): { href: string; label: string; icon: LucideIcon }[] {
@@ -134,7 +142,7 @@ export function AppSidebar() {
               School System
             </h1>
             <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">
-              Platform Admin
+              {user ? (ROLE_LABELS[user.role] ?? user.role) : 'Dashboard'}
             </p>
           </div>
         </div>

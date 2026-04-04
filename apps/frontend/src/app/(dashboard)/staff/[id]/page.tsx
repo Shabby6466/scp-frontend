@@ -226,24 +226,31 @@ export default function StaffDocumentsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0 pb-0">
-              <div className="divide-y divide-border/50">
-                {userDetail.requiredDocTypes?.map((dt) => {
-                  const doc = docsByType.get(dt.id);
-                  return (
-                    <DocumentChecklistRow
-                      key={dt.id}
-                      documentTypeName={dt.name}
-                      mandatory={dt.isMandatory}
-                      doc={doc}
-                      uploading={uploadingTypeId === dt.id}
-                      canVerify={canVerify}
-                      onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
-                      onDownload={() => doc && handleDownload(doc.id)}
-                      onVerify={() => doc && void verifyDoc(doc.id)}
-                    />
-                  );
-                })}
-              </div>
+              {!userDetail.requiredDocTypes?.length ? (
+                <div className="flex flex-col items-center gap-2 py-12 text-center">
+                  <p className="text-sm font-medium text-muted-foreground">No document requirements assigned</p>
+                  <p className="text-xs text-muted-foreground/60">An administrator can assign document types from the school settings.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border/50">
+                  {userDetail.requiredDocTypes.map((dt) => {
+                    const doc = docsByType.get(dt.id);
+                    return (
+                      <DocumentChecklistRow
+                        key={dt.id}
+                        documentTypeName={dt.name}
+                        mandatory={dt.isMandatory}
+                        doc={doc}
+                        uploading={uploadingTypeId === dt.id}
+                        canVerify={canVerify}
+                        onUpload={(file) => handleFileChosen(dt.id, dt.name, file)}
+                        onDownload={() => doc && handleDownload(doc.id)}
+                        onVerify={() => doc && void verifyDoc(doc.id)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

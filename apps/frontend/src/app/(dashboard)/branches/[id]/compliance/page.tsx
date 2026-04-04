@@ -53,7 +53,11 @@ function teacherComplianceColumns(
       headerClassName: 'text-right',
       cellInset: 'end',
       cellClassName: 'text-right tabular-nums',
-      cell: (row) => row.missingCount,
+      cell: (row) => (
+        <span className={row.missingCount > 0 ? 'font-bold text-destructive' : 'text-muted-foreground'}>
+          {row.missingCount}
+        </span>
+      ),
     },
     {
       id: 'actions',

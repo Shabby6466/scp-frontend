@@ -11,7 +11,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Search, FilterX } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 import { useGetBranchesQuery } from '@/store/features/branchApi';
 
 export interface UserFilters {
