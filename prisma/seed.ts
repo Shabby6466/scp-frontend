@@ -84,7 +84,6 @@ async function main() {
       role: UserRole.ADMIN,
       authorities: [
         UserRole.DIRECTOR,
-        UserRole.SCHOOL_ADMIN,
         UserRole.BRANCH_DIRECTOR,
         UserRole.TEACHER,
         UserRole.STUDENT,
@@ -112,32 +111,6 @@ async function main() {
       password: hashedPassword,
       name: 'Jordan Ellis',
       role: UserRole.DIRECTOR,
-      schoolId: schoolB.id,
-      assignedById: admin.id,
-      authorities: [UserRole.BRANCH_DIRECTOR, UserRole.TEACHER, UserRole.STUDENT],
-      emailVerifiedAt: new Date(),
-    },
-  });
-
-  const schoolAdminA = await prisma.user.create({
-    data: {
-      email: 'schooladmin.maple@demo.local',
-      password: hashedPassword,
-      name: 'Sam Rivera',
-      role: UserRole.SCHOOL_ADMIN,
-      schoolId: schoolA.id,
-      assignedById: admin.id,
-      authorities: [UserRole.BRANCH_DIRECTOR, UserRole.TEACHER, UserRole.STUDENT],
-      emailVerifiedAt: new Date(),
-    },
-  });
-
-  const schoolAdminB = await prisma.user.create({
-    data: {
-      email: 'schooladmin.riverside@demo.local',
-      password: hashedPassword,
-      name: 'Taylor Brooks',
-      role: UserRole.SCHOOL_ADMIN,
       schoolId: schoolB.id,
       assignedById: admin.id,
       authorities: [UserRole.BRANCH_DIRECTOR, UserRole.TEACHER, UserRole.STUDENT],
@@ -375,6 +348,137 @@ async function main() {
     }),
   ]);
 
+  await prisma.directorProfile.createMany({
+    data: [
+      {
+        userId: directorA.id,
+        officePhone: '+1-555-0101',
+        notes: 'Demo: school director for Maple Street Early Learning (2 branches).',
+      },
+      {
+        userId: directorB.id,
+        officePhone: '+1-555-0202',
+        notes: 'Demo: school director for Riverside Day School (2 branches).',
+      },
+    ],
+  });
+
+  await prisma.branchDirectorProfile.createMany({
+    data: [
+      {
+        userId: bdA1.id,
+        branchStartDate: daysAgo(420),
+        notes:
+          'Main Campus — Riley Park. Demo chain: Morgan (director) → Riley → teachers Priya & Chris → students Alex, Sam, Lia.',
+      },
+      {
+        userId: bdA2.id,
+        branchStartDate: daysAgo(310),
+        notes: 'West Annex — Casey Nguyen. Linked to Morgan; teachers Dana; student Jordan.',
+      },
+      {
+        userId: bdB1.id,
+        branchStartDate: daysAgo(280),
+        notes: 'Downtown Center — Alex Morgan. Linked to Jordan Ellis (director).',
+      },
+      {
+        userId: bdB2.id,
+        branchStartDate: daysAgo(190),
+        notes: 'Harbor View — Jamie Lee. Linked to Jordan Ellis (director).',
+      },
+    ],
+  });
+
+  await prisma.teacherProfile.createMany({
+    data: [
+      {
+        userId: teacherA1a.id,
+        subjectArea: 'Pre-K / Rainbow Room (Main Campus)',
+        employeeCode: 'MS-MC-LT-001',
+        joiningDate: daysAgo(540),
+      },
+      {
+        userId: teacherA1b.id,
+        subjectArea: 'Pre-K / Rainbow Room (Main Campus)',
+        employeeCode: 'MS-MC-AT-002',
+        joiningDate: daysAgo(120),
+      },
+      {
+        userId: teacherA2.id,
+        subjectArea: 'Toddler Program (West Annex)',
+        employeeCode: 'MS-WA-LT-003',
+        joiningDate: daysAgo(400),
+      },
+      {
+        userId: teacherB1.id,
+        subjectArea: 'Early Childhood (Downtown)',
+        employeeCode: 'RS-DT-ED-001',
+        joiningDate: daysAgo(620),
+      },
+      {
+        userId: teacherB2.id,
+        subjectArea: 'Inclusion support (Harbor View)',
+        employeeCode: 'RS-HV-PARA-001',
+        joiningDate: daysAgo(90),
+      },
+    ],
+  });
+
+  const [stuAlex, stuSam, stuJordan, stuRiver, stuSkye, stuLia, stuMilo, stuZoe] = students;
+
+  await prisma.studentProfile.createMany({
+    data: [
+      {
+        userId: stuAlex.id,
+        rollNumber: 'MS-MC-101',
+        guardianName: 'Taylor Martinez',
+        guardianPhone: '+1-555-3101',
+      },
+      {
+        userId: stuSam.id,
+        rollNumber: 'MS-MC-102',
+        guardianName: 'Amina Okonkwo',
+        guardianPhone: '+1-555-3102',
+      },
+      {
+        userId: stuJordan.id,
+        rollNumber: 'MS-WA-201',
+        guardianName: 'Min Lee',
+        guardianPhone: '+1-555-3201',
+      },
+      {
+        userId: stuRiver.id,
+        rollNumber: 'RS-DT-301',
+        guardianName: 'Harpreet Singh',
+        guardianPhone: '+1-555-4101',
+      },
+      {
+        userId: stuSkye.id,
+        rollNumber: 'RS-HV-401',
+        guardianName: 'Jordan Brown',
+        guardianPhone: '+1-555-4201',
+      },
+      {
+        userId: stuLia.id,
+        rollNumber: 'MS-MC-103',
+        guardianName: 'Marisol Reyes',
+        guardianPhone: '+1-555-3103',
+      },
+      {
+        userId: stuMilo.id,
+        rollNumber: 'RS-DT-302',
+        guardianName: 'Wei Chen',
+        guardianPhone: '+1-555-4102',
+      },
+      {
+        userId: stuZoe.id,
+        rollNumber: 'RS-HV-402',
+        guardianName: 'Chris Adams',
+        guardianPhone: '+1-555-4202',
+      },
+    ],
+  });
+
   console.log('Seeding document types…');
   await seedDocumentTypes({
     prisma,
@@ -390,46 +494,81 @@ async function main() {
   const allDocTypes = await prisma.documentType.findMany({
     orderBy: [{ schoolId: 'asc' }, { sortOrder: 'asc' }],
   });
-  const teacherTypes = allDocTypes.filter((d) => d.targetRole === UserRole.TEACHER);
-  const studentTypes = allDocTypes.filter((d) => d.targetRole === UserRole.STUDENT);
-  const branchDirectorTypes = allDocTypes.filter(
-    (d) => d.targetRole === UserRole.BRANCH_DIRECTOR,
+
+  const teacherTypesA = allDocTypes.filter(
+    (d) => d.schoolId === schoolA.id && d.targetRole === UserRole.TEACHER,
   );
+  const teacherTypesB = allDocTypes.filter(
+    (d) => d.schoolId === schoolB.id && d.targetRole === UserRole.TEACHER,
+  );
+  const studentTypesA = allDocTypes.filter(
+    (d) => d.schoolId === schoolA.id && d.targetRole === UserRole.STUDENT,
+  );
+  const studentTypesB = allDocTypes.filter(
+    (d) => d.schoolId === schoolB.id && d.targetRole === UserRole.STUDENT,
+  );
+  const branchDirectorTypesA = allDocTypes.filter(
+    (d) => d.schoolId === schoolA.id && d.targetRole === UserRole.BRANCH_DIRECTOR,
+  );
+  const branchDirectorTypesB = allDocTypes.filter(
+    (d) => d.schoolId === schoolB.id && d.targetRole === UserRole.BRANCH_DIRECTOR,
+  );
+
+  function typeByName(schoolId: string, role: UserRole, name: string) {
+    const t = allDocTypes.find(
+      (d) => d.schoolId === schoolId && d.targetRole === role && d.name === name,
+    );
+    if (!t) {
+      throw new Error(`Seed: missing DocumentType "${name}" for school ${schoolId} role ${role}`);
+    }
+    return t;
+  }
 
   await prisma.user.update({
     where: { id: teacherA1a.id },
-    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+    data: { requiredDocTypes: { connect: teacherTypesA.map((d) => ({ id: d.id })) } },
   });
   await prisma.user.update({
     where: { id: teacherA1b.id },
-    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+    data: { requiredDocTypes: { connect: teacherTypesA.map((d) => ({ id: d.id })) } },
   });
   await prisma.user.update({
     where: { id: teacherA2.id },
-    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+    data: { requiredDocTypes: { connect: teacherTypesA.map((d) => ({ id: d.id })) } },
   });
   await prisma.user.update({
     where: { id: teacherB1.id },
-    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+    data: { requiredDocTypes: { connect: teacherTypesB.map((d) => ({ id: d.id })) } },
   });
   await prisma.user.update({
     where: { id: teacherB2.id },
-    data: { requiredDocTypes: { connect: teacherTypes.map((d) => ({ id: d.id })) } },
+    data: { requiredDocTypes: { connect: teacherTypesB.map((d) => ({ id: d.id })) } },
   });
 
   for (const student of students) {
+    const types = student.schoolId === schoolA.id ? studentTypesA : studentTypesB;
     await prisma.user.update({
       where: { id: student.id },
-      data: { requiredDocTypes: { connect: studentTypes.map((d) => ({ id: d.id })) } },
+      data: { requiredDocTypes: { connect: types.map((d) => ({ id: d.id })) } },
     });
   }
 
-  for (const bd of [bdA1, bdA2, bdB1, bdB2]) {
-    await prisma.user.update({
-      where: { id: bd.id },
-      data: { requiredDocTypes: { connect: branchDirectorTypes.map((d) => ({ id: d.id })) } },
-    });
-  }
+  await prisma.user.update({
+    where: { id: bdA1.id },
+    data: { requiredDocTypes: { connect: branchDirectorTypesA.map((d) => ({ id: d.id })) } },
+  });
+  await prisma.user.update({
+    where: { id: bdA2.id },
+    data: { requiredDocTypes: { connect: branchDirectorTypesA.map((d) => ({ id: d.id })) } },
+  });
+  await prisma.user.update({
+    where: { id: bdB1.id },
+    data: { requiredDocTypes: { connect: branchDirectorTypesB.map((d) => ({ id: d.id })) } },
+  });
+  await prisma.user.update({
+    where: { id: bdB2.id },
+    data: { requiredDocTypes: { connect: branchDirectorTypesB.map((d) => ({ id: d.id })) } },
+  });
 
   let docCount = 0;
 
@@ -467,53 +606,366 @@ async function main() {
   const expNearSoon = daysFromToday(5);
   const expActiveFar = daysFromToday(200);
 
-  const owners = [bdA1, bdA2, bdB1, bdB2, teacherA1a, teacherA1b, teacherA2, teacherB1, teacherB2, ...students];
-  const uploaders = [
-    admin,
-    directorA,
-    directorB,
-    schoolAdminA,
-    schoolAdminB,
-    bdA1,
-    bdA2,
-    bdB1,
-    bdB2,
-  ];
-  const ownerTypeMap = new Map<string, string[]>();
-  for (const owner of owners) {
-    const assigned = await prisma.user.findUniqueOrThrow({
-      where: { id: owner.id },
-      select: { requiredDocTypes: { select: { id: true } } },
+  const A = schoolA.id;
+  const B = schoolB.id;
+
+  const tGov = (sid: string) => typeByName(sid, UserRole.TEACHER, 'Government-issued ID');
+  const tBg = (sid: string) => typeByName(sid, UserRole.TEACHER, 'Background Check Clearance');
+  const tCpr = (sid: string) => typeByName(sid, UserRole.TEACHER, 'CPR and First Aid Certificate');
+  const tContract = (sid: string) =>
+    typeByName(sid, UserRole.TEACHER, 'Teacher Contract Acknowledgment');
+
+  const sId = (sid: string) => typeByName(sid, UserRole.STUDENT, 'Student Identity Proof');
+  const sReg = (sid: string) => typeByName(sid, UserRole.STUDENT, 'Student Registration Form');
+  const sParent = (sid: string) => typeByName(sid, UserRole.STUDENT, 'Parent Consent Form');
+
+  const bdSafety = (sid: string) =>
+    typeByName(sid, UserRole.BRANCH_DIRECTOR, 'Branch Safety Compliance Pack');
+  const bdOps = (sid: string) =>
+    typeByName(sid, UserRole.BRANCH_DIRECTOR, 'Branch Operations Approval Letter');
+
+  /** Primary demo: Maple Street → Main Campus — one chain you can click through in the UI. */
+  await addDocument({
+    documentTypeId: bdSafety(A).id,
+    ownerUserId: bdA1.id,
+    uploadedById: directorA.id,
+    createdAt: daysAgo(400, 10, 15),
+    issuedAt: daysAgo(400, 10, 15),
+    expiresAt: expNear,
+    verifiedAt: daysAgo(380, 14, 0),
+    fileName: 'main-campus_branch-safety.pdf',
+  });
+  await addDocument({
+    documentTypeId: bdOps(A).id,
+    ownerUserId: bdA1.id,
+    uploadedById: directorA.id,
+    createdAt: daysAgo(410, 11, 0),
+    issuedAt: daysAgo(410, 11, 0),
+    expiresAt: null,
+    verifiedAt: daysAgo(405, 9, 30),
+    fileName: 'main-campus_ops-approval.pdf',
+  });
+
+  await addDocument({
+    documentTypeId: tGov(A).id,
+    ownerUserId: teacherA1a.id,
+    uploadedById: bdA1.id,
+    createdAt: daysAgo(200, 10, 0),
+    issuedAt: daysAgo(200, 10, 0),
+    expiresAt: expActiveFar,
+    verifiedAt: daysAgo(198, 15, 0),
+    fileName: 'priya_government-id.pdf',
+  });
+  await addDocument({
+    documentTypeId: tBg(A).id,
+    ownerUserId: teacherA1a.id,
+    uploadedById: directorA.id,
+    createdAt: daysAgo(180, 14, 20),
+    issuedAt: daysAgo(180, 14, 20),
+    expiresAt: expActiveFar,
+    verifiedAt: daysAgo(175, 11, 0),
+    fileName: 'priya_background-check.pdf',
+  });
+  await addDocument({
+    documentTypeId: tCpr(A).id,
+    ownerUserId: teacherA1a.id,
+    uploadedById: bdA1.id,
+    createdAt: daysAgo(90, 9, 45),
+    issuedAt: daysAgo(90, 9, 45),
+    expiresAt: expNear,
+    verifiedAt: daysAgo(88, 10, 0),
+    fileName: 'priya_cpr-first-aid.pdf',
+  });
+  await addDocument({
+    documentTypeId: tContract(A).id,
+    ownerUserId: teacherA1a.id,
+    uploadedById: directorA.id,
+    createdAt: daysAgo(60, 16, 0),
+    issuedAt: daysAgo(60, 16, 0),
+    expiresAt: null,
+    verifiedAt: daysAgo(59, 9, 0),
+    fileName: 'priya_contract-ack.pdf',
+  });
+
+  await addDocument({
+    documentTypeId: tGov(A).id,
+    ownerUserId: teacherA1b.id,
+    uploadedById: bdA1.id,
+    createdAt: daysAgo(45, 11, 0),
+    issuedAt: daysAgo(45, 11, 0),
+    expiresAt: expActiveFar,
+    verifiedAt: daysAgo(44, 14, 0),
+    fileName: 'chris_government-id.pdf',
+  });
+  await addDocument({
+    documentTypeId: tContract(A).id,
+    ownerUserId: teacherA1b.id,
+    uploadedById: bdA1.id,
+    createdAt: daysAgo(40, 10, 30),
+    issuedAt: daysAgo(40, 10, 30),
+    expiresAt: null,
+    verifiedAt: null,
+    fileName: 'chris_contract-ack.pdf',
+  });
+
+  await addDocument({
+    documentTypeId: sId(A).id,
+    ownerUserId: stuAlex.id,
+    uploadedById: teacherA1a.id,
+    createdAt: daysAgo(30, 10, 0),
+    issuedAt: daysAgo(30, 10, 0),
+    expiresAt: expActiveFar,
+    verifiedAt: daysAgo(28, 11, 0),
+    fileName: 'alex_identity-proof.pdf',
+  });
+  await addDocument({
+    documentTypeId: sReg(A).id,
+    ownerUserId: stuAlex.id,
+    uploadedById: bdA1.id,
+    createdAt: daysAgo(28, 9, 30),
+    issuedAt: daysAgo(28, 9, 30),
+    expiresAt: null,
+    verifiedAt: daysAgo(27, 15, 0),
+    fileName: 'alex_registration.pdf',
+  });
+  await addDocument({
+    documentTypeId: sParent(A).id,
+    ownerUserId: stuAlex.id,
+    uploadedById: teacherA1a.id,
+    createdAt: daysAgo(25, 14, 0),
+    issuedAt: daysAgo(25, 14, 0),
+    expiresAt: expNearSoon,
+    verifiedAt: daysAgo(24, 10, 0),
+    fileName: 'alex_parent-consent.pdf',
+  });
+
+  await addDocument({
+    documentTypeId: sId(A).id,
+    ownerUserId: stuSam.id,
+    uploadedById: bdA1.id,
+    createdAt: daysAgo(20, 11, 0),
+    issuedAt: daysAgo(20, 11, 0),
+    expiresAt: expActiveFar,
+    verifiedAt: daysAgo(19, 9, 0),
+    fileName: 'sam_identity-proof.pdf',
+  });
+  await addDocument({
+    documentTypeId: sReg(A).id,
+    ownerUserId: stuSam.id,
+    uploadedById: teacherA1a.id,
+    createdAt: daysAgo(18, 10, 15),
+    issuedAt: daysAgo(18, 10, 15),
+    expiresAt: null,
+    verifiedAt: null,
+    fileName: 'sam_registration.pdf',
+  });
+
+  await addDocument({
+    documentTypeId: sId(A).id,
+    ownerUserId: stuLia.id,
+    uploadedById: bdA1.id,
+    createdAt: daysAgo(15, 9, 0),
+    issuedAt: daysAgo(15, 9, 0),
+    expiresAt: expExpired,
+    verifiedAt: null,
+    fileName: 'lia_identity-proof.pdf',
+  });
+
+  /** West Annex: complete coverage, one expired student doc for dashboards. */
+  await addDocument({
+    documentTypeId: bdSafety(A).id,
+    ownerUserId: bdA2.id,
+    uploadedById: directorA.id,
+    createdAt: daysAgo(300, 10, 0),
+    issuedAt: daysAgo(300, 10, 0),
+    expiresAt: expActiveFar,
+    verifiedAt: daysAgo(298, 12, 0),
+    fileName: 'west_branch-safety.pdf',
+  });
+  await addDocument({
+    documentTypeId: bdOps(A).id,
+    ownerUserId: bdA2.id,
+    uploadedById: directorA.id,
+    createdAt: daysAgo(295, 11, 30),
+    issuedAt: daysAgo(295, 11, 30),
+    expiresAt: null,
+    verifiedAt: daysAgo(294, 9, 0),
+    fileName: 'west_ops-approval.pdf',
+  });
+  for (const dt of [tGov(A), tBg(A), tCpr(A), tContract(A)]) {
+    await addDocument({
+      documentTypeId: dt.id,
+      ownerUserId: teacherA2.id,
+      uploadedById: bdA2.id,
+      createdAt: daysAgo(50 + dt.sortOrder, 10, 0),
+      issuedAt: daysAgo(50 + dt.sortOrder, 10, 0),
+      expiresAt: dt.name.includes('CPR') ? expNear : expActiveFar,
+      verifiedAt: daysAgo(48 + dt.sortOrder, 14, 0),
+      fileName: `dana_${dt.name.replace(/\s+/g, '_').toLowerCase()}.pdf`,
     });
-    ownerTypeMap.set(owner.id, assigned.requiredDocTypes.map((d) => d.id));
+  }
+  await addDocument({
+    documentTypeId: sId(A).id,
+    ownerUserId: stuJordan.id,
+    uploadedById: teacherA2.id,
+    createdAt: daysAgo(40, 10, 0),
+    issuedAt: daysAgo(40, 10, 0),
+    expiresAt: expExpired,
+    verifiedAt: daysAgo(38, 11, 0),
+    fileName: 'jordan_identity.pdf',
+  });
+  await addDocument({
+    documentTypeId: sReg(A).id,
+    ownerUserId: stuJordan.id,
+    uploadedById: bdA2.id,
+    createdAt: daysAgo(35, 9, 0),
+    issuedAt: daysAgo(35, 9, 0),
+    expiresAt: null,
+    verifiedAt: daysAgo(34, 16, 0),
+    fileName: 'jordan_registration.pdf',
+  });
+  await addDocument({
+    documentTypeId: sParent(A).id,
+    ownerUserId: stuJordan.id,
+    uploadedById: teacherA2.id,
+    createdAt: daysAgo(32, 13, 0),
+    issuedAt: daysAgo(32, 13, 0),
+    expiresAt: expNearSoon,
+    verifiedAt: null,
+    fileName: 'jordan_parent-consent.pdf',
+  });
+
+  /** Riverside: lighter mirror so cross-school filters still show data. */
+  await addDocument({
+    documentTypeId: bdSafety(B).id,
+    ownerUserId: bdB1.id,
+    uploadedById: directorB.id,
+    createdAt: daysAgo(250, 10, 0),
+    issuedAt: daysAgo(250, 10, 0),
+    expiresAt: expNear,
+    verifiedAt: daysAgo(248, 9, 0),
+    fileName: 'downtown_branch-safety.pdf',
+  });
+  await addDocument({
+    documentTypeId: bdOps(B).id,
+    ownerUserId: bdB1.id,
+    uploadedById: directorB.id,
+    createdAt: daysAgo(245, 11, 0),
+    issuedAt: daysAgo(245, 11, 0),
+    expiresAt: null,
+    verifiedAt: daysAgo(244, 10, 30),
+    fileName: 'downtown_ops-approval.pdf',
+  });
+  await addDocument({
+    documentTypeId: bdSafety(B).id,
+    ownerUserId: bdB2.id,
+    uploadedById: directorB.id,
+    createdAt: daysAgo(200, 9, 30),
+    issuedAt: daysAgo(200, 9, 30),
+    expiresAt: expActiveFar,
+    verifiedAt: daysAgo(199, 14, 0),
+    fileName: 'harbor_branch-safety.pdf',
+  });
+  await addDocument({
+    documentTypeId: bdOps(B).id,
+    ownerUserId: bdB2.id,
+    uploadedById: directorB.id,
+    createdAt: daysAgo(195, 10, 15),
+    issuedAt: daysAgo(195, 10, 15),
+    expiresAt: null,
+    verifiedAt: daysAgo(194, 11, 0),
+    fileName: 'harbor_ops-approval.pdf',
+  });
+
+  for (const dt of [tGov(B), tBg(B), tCpr(B), tContract(B)]) {
+    await addDocument({
+      documentTypeId: dt.id,
+      ownerUserId: teacherB1.id,
+      uploadedById: bdB1.id,
+      createdAt: daysAgo(70 + dt.sortOrder, 10, 0),
+      issuedAt: daysAgo(70 + dt.sortOrder, 10, 0),
+      expiresAt: expActiveFar,
+      verifiedAt: daysAgo(68 + dt.sortOrder, 15, 0),
+      fileName: `emma_${dt.name.replace(/\s+/g, '_').toLowerCase()}.pdf`,
+    });
+  }
+  for (const dt of [tGov(B), tBg(B)]) {
+    await addDocument({
+      documentTypeId: dt.id,
+      ownerUserId: teacherB2.id,
+      uploadedById: bdB2.id,
+      createdAt: daysAgo(55 + dt.sortOrder, 11, 0),
+      issuedAt: daysAgo(55 + dt.sortOrder, 11, 0),
+      expiresAt: expActiveFar,
+      verifiedAt: null,
+      fileName: `noah_${dt.name.replace(/\s+/g, '_').toLowerCase()}.pdf`,
+    });
   }
 
-  for (let day = 0; day < 21; day++) {
-    for (const owner of owners) {
-      const typeIds = ownerTypeMap.get(owner.id) ?? [];
-      if (typeIds.length === 0) continue;
-      const typeId = typeIds[(day + owner.id.length) % typeIds.length]!;
-      const uploader = uploaders[(day + owner.email.length) % uploaders.length]!;
-      const expiresAt = day % 6 === 0 ? expNearSoon : day % 8 === 0 ? expExpired : day % 4 === 0 ? expNear : expActiveFar;
-      await addDocument({
-        documentTypeId: typeId,
-        ownerUserId: owner.id,
-        uploadedById: uploader.id,
-        createdAt: daysAgo(day, 9 + (day % 8), (day * 7) % 59),
-        issuedAt: daysAgo(day + 30, 9, 0),
-        expiresAt,
-        verifiedAt: day % 3 === 0 ? daysAgo(Math.max(0, day - 1), 11, 0) : null,
-        fileName: `${owner.email.split('@')[0]}_${day}.pdf`,
-      });
-    }
+  for (const [stu, label] of [
+    [stuRiver, 'river'],
+    [stuMilo, 'milo'],
+  ] as const) {
+    await addDocument({
+      documentTypeId: sId(B).id,
+      ownerUserId: stu.id,
+      uploadedById: teacherB1.id,
+      createdAt: daysAgo(22, 10, 0),
+      issuedAt: daysAgo(22, 10, 0),
+      expiresAt: expActiveFar,
+      verifiedAt: daysAgo(21, 9, 0),
+      fileName: `${label}_identity.pdf`,
+    });
+    await addDocument({
+      documentTypeId: sReg(B).id,
+      ownerUserId: stu.id,
+      uploadedById: bdB1.id,
+      createdAt: daysAgo(20, 9, 0),
+      issuedAt: daysAgo(20, 9, 0),
+      expiresAt: null,
+      verifiedAt: daysAgo(19, 14, 0),
+      fileName: `${label}_registration.pdf`,
+    });
+  }
+  for (const [stu, label] of [
+    [stuSkye, 'skye'],
+    [stuZoe, 'zoe'],
+  ] as const) {
+    await addDocument({
+      documentTypeId: sId(B).id,
+      ownerUserId: stu.id,
+      uploadedById: teacherB2.id,
+      createdAt: daysAgo(18, 10, 0),
+      issuedAt: daysAgo(18, 10, 0),
+      expiresAt: expNearSoon,
+      verifiedAt: null,
+      fileName: `${label}_identity.pdf`,
+    });
+    await addDocument({
+      documentTypeId: sParent(B).id,
+      ownerUserId: stu.id,
+      uploadedById: bdB2.id,
+      createdAt: daysAgo(16, 11, 0),
+      issuedAt: daysAgo(16, 11, 0),
+      expiresAt: expActiveFar,
+      verifiedAt: daysAgo(15, 10, 0),
+      fileName: `${label}_parent-consent.pdf`,
+    });
   }
 
   console.log('');
   console.log('── Mock database ready ─────────────────────────────────────────');
   console.log(`Schools: ${schoolA.name}, ${schoolB.name}`);
   console.log(`Branches: 4 (2 per school)`);
-  console.log(`Users: admin, 2 directors, 2 school admins, 4 branch directors, 5 teachers, 8 students`);
-  console.log(`Documents: ${docCount} sample rows (S3 keys are placeholders)`);
+  console.log(`Users: admin, 2 directors, 4 branch directors, 5 teachers, 8 students`);
+  console.log(`Documents: ${docCount} rows (linked owners, uploaders, types; S3 keys are placeholders)`);
+  console.log('');
+  console.log('Demo flow (click-through):');
+  console.log(`  • ${schoolA.name} → branch "Main Campus" → ${bdA1.name} (${bdA1.email})`);
+  console.log(`    → teachers ${teacherA1a.name} & ${teacherA1b.name} → students ${stuAlex.name}, ${stuSam.name}, ${stuLia.name}`);
+  console.log(`  • ${teacherA1a.name}: CPR cert expires ~12d; ${teacherA1b.name}: missing background & CPR uploads`);
+  console.log(`  • ${stuAlex.name}: parent consent expires ~5d; ${stuSam.name}: registration pending verify`);
+  console.log(`  • West Annex: ${stuJordan.name} has expired ID + unverified consent`);
   console.log('');
   console.log('All accounts use the same password:');
   console.log(`  ${SEED_PASSWORD}`);
@@ -523,8 +975,6 @@ async function main() {
   console.log(`ADMIN          ${admin.email}`);
   console.log(`DIRECTOR       ${directorA.email}`);
   console.log(`DIRECTOR       ${directorB.email}`);
-  console.log(`SCHOOL_ADMIN   ${schoolAdminA.email}`);
-  console.log(`SCHOOL_ADMIN   ${schoolAdminB.email}`);
   console.log(`BRANCH_DIR     ${bdA1.email}`);
   console.log(`BRANCH_DIR     ${bdA2.email}`);
   console.log(`BRANCH_DIR     ${bdB1.email}`);

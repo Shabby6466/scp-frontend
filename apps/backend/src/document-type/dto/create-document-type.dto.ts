@@ -16,4 +16,9 @@ export class CreateDocumentTypeDto {
   @IsOptional()
   @IsString()
   schoolId?: string;
+
+  /** Platform admin only: scope to a branch (must belong to `schoolId`). */
+  @IsOptional()
+  @IsString()
+  branchId?: string;
 }

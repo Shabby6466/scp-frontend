@@ -11,7 +11,6 @@ import { isSchoolDirector } from '../school-scope.util.js';
 /**
  * Ensures users can only access resources within their scope.
  * ADMIN bypasses all scope checks.
- * SCHOOL_ADMIN (legacy) can access their school.
  * School DIRECTOR (schoolId set) can access any branch in their school.
  * TEACHER is limited to their branch when branchId is present on the request.
  *
@@ -42,12 +41,6 @@ export class ScopeGuard implements CanActivate {
       request.query?.branchId ??
       request.body?.branchId;
 
-    if (user.role === UserRole.SCHOOL_ADMIN) {
-      if (targetSchoolId && targetSchoolId !== user.schoolId) {
-        throw new ForbiddenException('Cannot access another school');
-      }
-      return true;
-    }
 
     if (isSchoolDirector(user)) {
       if (targetSchoolId && targetSchoolId !== user.schoolId) {

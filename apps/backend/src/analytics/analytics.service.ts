@@ -41,7 +41,7 @@ export class AnalyticsService {
       }
       return { kind: 'branch', branchId: user.branchId };
     }
-    if (user.role === UserRole.SCHOOL_ADMIN || isSchoolDirector(user)) {
+    if (user.role === UserRole.DIRECTOR || isSchoolDirector(user)) {
       if (!user.schoolId) {
         throw new ForbiddenException('Account is not linked to a school');
       }
@@ -185,14 +185,14 @@ export class AnalyticsService {
           CASE
             WHEN d."expiresAt" IS NOT NULL
               AND d."expiresAt"::date >= CURRENT_DATE
-              AND d."expiresAt"::date <= CURRENT_DATE + ${nearDays}
+              AND d."expiresAt"::date <= CURRENT_DATE + (${nearDays})::integer
             THEN 1 ELSE 0
           END
         )::int AS "nearExpiry",
         SUM(
           CASE
             WHEN d."expiresAt" IS NOT NULL
-              AND d."expiresAt"::date > CURRENT_DATE + ${nearDays}
+              AND d."expiresAt"::date > CURRENT_DATE + (${nearDays})::integer
             THEN 1 ELSE 0
           END
         )::int AS active

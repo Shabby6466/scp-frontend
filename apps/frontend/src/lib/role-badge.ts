@@ -6,7 +6,6 @@ export type RoleBadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['v
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Admin',
-  SCHOOL_ADMIN: 'School Admin',
   DIRECTOR: 'School director',
   BRANCH_DIRECTOR: 'Branch director',
   TEACHER: 'Teacher',
@@ -21,8 +20,6 @@ export function getRoleBadgeVariant(role: string): RoleBadgeVariant {
   switch (role) {
     case 'ADMIN':
       return 'default';
-    case 'SCHOOL_ADMIN':
-      return 'secondary';
     case 'DIRECTOR':
       return 'outline';
     case 'BRANCH_DIRECTOR':

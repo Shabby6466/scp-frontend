@@ -6,22 +6,18 @@ import { useAppSelector } from '@/store/hooks';
 import { InlineLoading } from '@/components/layout/inline-loading';
 import { SchoolUsersPanel } from '@/components/users/school-users-panel';
 
-export default function TeachersPage() {
+export default function StudentsPage() {
   const router = useRouter();
   const user = useAppSelector((state) => state.auth.user);
 
   useEffect(() => {
     if (!user) return;
     if (user.role === 'DIRECTOR' || user.role === 'BRANCH_DIRECTOR') {
-      router.replace('/school/teachers');
-    } else {
-      // Render inline views for admin and student below.
+      router.replace('/school/students');
     }
-  }, [user, router]);
+  }, [router, user]);
 
-  if (!user) {
-    return <InlineLoading message="Loading…" />;
-  }
+  if (!user) return <InlineLoading message="Loading…" />;
 
   if (user.role === 'DIRECTOR' || user.role === 'BRANCH_DIRECTOR') {
     return <p className="text-sm text-muted-foreground">Redirecting…</p>;
@@ -31,23 +27,23 @@ export default function TeachersPage() {
     return (
       <SchoolUsersPanel
         schoolId=""
-        title="Teachers"
-        description="Manage teachers across the platform."
-        fixedRole="TEACHER"
-        allowedCreateRoles={['TEACHER']}
+        title="Students"
+        description="Manage students across the platform."
+        fixedRole="STUDENT"
+        allowedCreateRoles={['STUDENT']}
       />
     );
   }
 
-  if (user.role === 'STUDENT') {
+  if (user.role === 'TEACHER') {
+    const schoolId = user.schoolId ?? user.school?.id ?? '';
     return (
       <SchoolUsersPanel
-        schoolId=""
-        title="Teachers"
-        description="Teachers assigned to your branch (same campus as you)."
-        fixedRole="TEACHER"
+        schoolId={schoolId}
+        title="Students"
+        description="View students in your school."
+        fixedRole="STUDENT"
         readOnly
-        sessionTeachers
       />
     );
   }

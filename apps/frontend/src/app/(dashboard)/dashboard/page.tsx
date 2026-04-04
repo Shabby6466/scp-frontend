@@ -19,7 +19,7 @@ export default function DashboardPage() {
   const branchId = user?.branchId ?? null;
 
   const roleLinks =
-    user?.role === 'ADMIN' || user?.role === 'SCHOOL_ADMIN'
+    user?.role === 'ADMIN' || user?.role === 'DIRECTOR'
       ? [
           {
             href: '/schools',

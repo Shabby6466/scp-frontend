@@ -1,8 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useGetTeachersQuery, useCreateUserMutation } from '@/store/features/userApi';
+import {
+  useGetTeachersQuery,
+  useCreateUserMutation,
+  useUpdateUserMutation,
+} from '@/store/features/userApi';
+import { canShowEditUser } from '@/lib/school-user-permissions';
 import { useGetBranchesQuery } from '@/store/features/branchApi';
 import { useAppSelector } from '@/store/hooks';
 import {
@@ -36,8 +42,10 @@ import { sanitizeFromPath } from '@/lib/safe-from-path';
 import { toast, toastError } from '@/lib/toast';
 import { GraduationCap, UserPlus } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { buttonVariants } from '@/lib/button-variants';
+import { cn } from '@/lib/utils';
 
-const TEACHER_COLUMNS: DataTableColumnDef<UserSummary>[] = [
+const TEACHER_BASE_COLUMNS: DataTableColumnDef<UserSummary>[] = [
   {
     id: 'email',
     header: 'Email',
@@ -68,6 +76,10 @@ const TEACHER_COLUMNS: DataTableColumnDef<UserSummary>[] = [
   },
 ];
 
+function branchLabel(t: UserSummary, branches: { id: string; name: string }[]): string {
+  return t.branch?.name ?? branches.find((b) => b.id === (t.branchId ?? ''))?.name ?? '—';
+}
+
 /**
  * Teachers directory for **school directors** and **branch directors** (school context from the signed-in user).
  * Prefer this route over `/schools/:id/teachers`, which is for platform and school admins.
@@ -87,8 +99,13 @@ export default function SchoolTeachersForDirectorsPage() {
     skip: !schoolId || !canUsePage,
   });
   const [createUser, { isLoading: isCreating }] = useCreateUserMutation();
+  const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
   const [assignDocumentTypeUsers, { isLoading: isAssigning }] = useAssignDocumentTypeUsersMutation();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<UserSummary | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [form, setForm] = useState({ email: '', name: '' });
   const [branchId, setBranchId] = useState('');
   const [filterBranchId, setFilterBranchId] = useState<string>('ALL');
@@ -151,6 +168,73 @@ export default function SchoolTeachersForDirectorsPage() {
       ? `/branches/${user.branchId}`
       : '/dashboard';
 
+  const staffFromPath = '/school/teachers';
+
+  const teacherColumns = useMemo((): DataTableColumnDef<UserSummary>[] => {
+    const branchCol: DataTableColumnDef<UserSummary> = {
+      id: 'branch',
+      header: 'Branch',
+      cellClassName: 'text-muted-foreground text-sm',
+      cell: (t) => branchLabel(t, branches ?? []),
+    };
+    const base: DataTableColumnDef<UserSummary>[] = [
+      ...TEACHER_BASE_COLUMNS.slice(0, -1),
+      branchCol,
+    ];
+    const actions: DataTableColumnDef<UserSummary> = {
+      id: 'actions',
+      header: 'Actions',
+      headInset: 'end',
+      cellInset: 'end',
+      headerClassName: 'min-w-[180px]',
+      cell: (t) => (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            href={`/staff/${t.id}?from=${encodeURIComponent(staffFromPath)}`}
+            className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
+          >
+            Documents
+          </Link>
+          {user && canShowEditUser(user, t) ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setEditTarget(t);
+                setEditName(t.name ?? '');
+                setEditPassword('');
+                setEditOpen(true);
+              }}
+            >
+              Edit
+            </Button>
+          ) : null}
+        </div>
+      ),
+    };
+    return [...base, actions];
+  }, [user, branches]);
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTarget || !editName.trim()) return;
+    try {
+      await updateUser({
+        id: editTarget.id,
+        body: {
+          name: editName.trim(),
+          ...(editPassword.trim() ? { password: editPassword.trim() } : {}),
+        },
+      }).unwrap();
+      setEditOpen(false);
+      setEditTarget(null);
+      toast('User updated');
+    } catch (err) {
+      toastError(err, 'Failed to update user');
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.email.trim() || !form.name.trim() || !schoolId || !resolvedBranchId) return;
@@ -198,7 +282,7 @@ export default function SchoolTeachersForDirectorsPage() {
 
       <PageHeader
         title="Teachers"
-        description="Invite and view teachers in your school (director view)."
+        description="Invite teachers, assign required document types using the card below, then manage uploads from Documents."
         actions={
           <Button onClick={() => setDialogOpen(true)} disabled={!resolvedBranchId}>
             <UserPlus className="mr-2 h-4 w-4" />
@@ -278,6 +362,53 @@ export default function SchoolTeachersForDirectorsPage() {
         </div>
       </DataTable.Card>
 
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) setEditTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleEditSave}>
+            <DialogHeader>
+              <DialogTitle>Edit teacher</DialogTitle>
+              <DialogDescription>Update name or set a new password for {editTarget?.email}.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-teacher-name">Name</Label>
+                <Input
+                  id="edit-teacher-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-teacher-password">New password (optional)</Label>
+                <Input
+                  id="edit-teacher-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Leave blank to keep current"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? 'Saving…' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleCreate}>
@@ -352,10 +483,10 @@ export default function SchoolTeachersForDirectorsPage() {
         <DataTable.Card>
           <DataTable.Table>
             <DataTable.Header>
-              <DataTable.ColumnHeaderRow columns={TEACHER_COLUMNS} />
+              <DataTable.ColumnHeaderRow columns={teacherColumns} />
             </DataTable.Header>
             <DataTable.Body>
-              <DataTable.SkeletonRows columns={TEACHER_COLUMNS.length} />
+              <DataTable.SkeletonRows columns={teacherColumns.length} />
             </DataTable.Body>
           </DataTable.Table>
         </DataTable.Card>
@@ -392,10 +523,10 @@ export default function SchoolTeachersForDirectorsPage() {
                     }}
                   />
                 </DataTable.Head>
-                {TEACHER_COLUMNS.map((col, idx) => (
+                {teacherColumns.map((col, idx) => (
                   <DataTable.Head
                     key={col.id}
-                    inset={idx === TEACHER_COLUMNS.length - 1 ? 'end' : undefined}
+                    inset={idx === teacherColumns.length - 1 ? 'end' : undefined}
                     className={col.headerClassName}
                   >
                     {col.header}
@@ -412,10 +543,10 @@ export default function SchoolTeachersForDirectorsPage() {
                       onCheckedChange={(checked) => toggleSelected(t.id, !!checked)}
                     />
                   </DataTable.Cell>
-                  {TEACHER_COLUMNS.map((col, idx) => (
+                  {teacherColumns.map((col, idx) => (
                     <DataTable.Cell
                       key={col.id}
-                      inset={idx === TEACHER_COLUMNS.length - 1 ? 'end' : undefined}
+                      inset={idx === teacherColumns.length - 1 ? 'end' : undefined}
                       className={col.cellClassName}
                     >
                       {col.cell(t)}

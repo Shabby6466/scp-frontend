@@ -44,7 +44,7 @@ import { TrendingUp, FileStack, Users, AlertTriangle } from 'lucide-react';
 const ANALYTICS_ROLES = new Set([
   'ADMIN',
   'DIRECTOR',
-  'SCHOOL_ADMIN',
+  'DIRECTOR',
   'BRANCH_DIRECTOR',
   'TEACHER',
 ]);
@@ -90,7 +90,6 @@ const ROLE_LABELS: Record<string, string> = {
   TEACHER: 'Teacher',
   BRANCH_DIRECTOR: 'Branch director',
   DIRECTOR: 'School director',
-  SCHOOL_ADMIN: 'School admin',
   ADMIN: 'Platform admin',
 };
 
@@ -99,7 +98,6 @@ function scopeDescription(role: string | undefined): string {
     case 'ADMIN':
       return 'All schools — uploads and form status across the platform.';
     case 'DIRECTOR':
-    case 'SCHOOL_ADMIN':
       return 'Your school — all branches.';
     case 'BRANCH_DIRECTOR':
       return 'Your branch — students, teachers, and facility documents.';
@@ -180,7 +178,7 @@ export function DashboardAnalytics() {
     !ANALYTICS_ROLES.has(role) ||
     (role === 'BRANCH_DIRECTOR' && !user.branchId) ||
     (role === 'TEACHER' && !user.branchId) ||
-    ((role === 'DIRECTOR' || role === 'SCHOOL_ADMIN') && !user.schoolId);
+    (role === 'DIRECTOR' && !user.schoolId);
 
   const { from, to } = useMemo(
     () => rangeForPreset(preset, customFrom, customTo),

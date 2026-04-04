@@ -47,12 +47,7 @@ export class UserController {
 
   @Patch('users/:id')
   @UseGuards(RolesGuard)
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
-    UserRole.DIRECTOR,
-    UserRole.BRANCH_DIRECTOR,
-  )
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
   updateUser(
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
@@ -69,12 +64,7 @@ export class UserController {
 
   @Post('schools/:schoolId/users')
   @UseGuards(RolesGuard)
-  @Roles(
-    UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
-    UserRole.DIRECTOR,
-    UserRole.BRANCH_DIRECTOR,
-  )
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
   createUser(
     @Param('schoolId') schoolId: string,
     @Body() dto: CreateUserDto,
@@ -97,7 +87,6 @@ export class UserController {
   @UseGuards(RolesGuard)
   @Roles(
     UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
   )
@@ -111,7 +100,7 @@ export class UserController {
 
   @Get('schools/:schoolId/branch-director-candidates')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
   listBranchDirectorCandidates(
     @Param('schoolId') schoolId: string,
     @CurrentUser()
@@ -122,7 +111,7 @@ export class UserController {
 
   @Get('teachers')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR)
+  @Roles(UserRole.DIRECTOR, UserRole.BRANCH_DIRECTOR, UserRole.STUDENT)
   async listTeachers(
     @CurrentUser()
     user: {

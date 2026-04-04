@@ -1,12 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-import { useGetDocumentsByStaffQuery } from '@/store/features/documentApi';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import {
+  useGetDocumentsByStaffQuery,
+  usePresignMutation,
+  useCompleteDocumentMutation,
+  useLazyGetDownloadUrlQuery,
+  useVerifyDocumentMutation,
+} from '@/store/features/documentApi';
 import { useGetDocumentTypesQuery } from '@/store/features/documentTypeApi';
 import { toast, toastError } from '@/lib/toast';
 import { putFileToPresignedUrl } from '@/lib/presigned-upload';
-import { usePresignMutation, useCompleteDocumentMutation, useLazyGetDownloadUrlQuery, useVerifyDocumentMutation } from '@/store/features/documentApi';
 import { useAppSelector } from '@/store/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentChecklistRow } from '@/components/documents/document-checklist-row';
@@ -17,9 +22,14 @@ import { sanitizeFromPath } from '@/lib/safe-from-path';
 
 export default function StaffDocumentsPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const teacherUserId = params.id as string;
   const user = useAppSelector((state) => state.auth.user);
+  const from = sanitizeFromPath(searchParams.get('from'));
+
+  const isOwnProfile = Boolean(user?.id && user.id === teacherUserId);
+
   const [uploadingTypeId, setUploadingTypeId] = useState<string | null>(null);
   const [uploadTarget, setUploadTarget] = useState<{
     documentTypeId: string;
@@ -27,10 +37,19 @@ export default function StaffDocumentsPage() {
     file: File;
   } | null>(null);
 
-  const { data: documents } = useGetDocumentsByStaffQuery(teacherUserId);
+  useEffect(() => {
+    if (isOwnProfile && user?.id) {
+      const q = from ? `?from=${encodeURIComponent(from)}` : '';
+      router.replace(`/my-documents${q}`);
+    }
+  }, [isOwnProfile, user?.id, router, from]);
+
+  const { data: documents } = useGetDocumentsByStaffQuery(teacherUserId, {
+    skip: isOwnProfile,
+  });
   const { data: docTypes } = useGetDocumentTypesQuery(
     { schoolId: user?.schoolId ?? undefined },
-    { skip: !user?.schoolId },
+    { skip: !user?.schoolId || isOwnProfile },
   );
   const [presign] = usePresignMutation();
   const [completeDoc] = useCompleteDocumentMutation();
@@ -39,13 +58,10 @@ export default function StaffDocumentsPage() {
 
   const canVerify =
     user?.role === 'ADMIN' ||
-    user?.role === 'SCHOOL_ADMIN' ||
     user?.role === 'DIRECTOR' ||
     user?.role === 'BRANCH_DIRECTOR';
-  const isOwnProfile = user?.id === teacherUserId;
   const isBranchDirector = user?.role === 'BRANCH_DIRECTOR';
 
-  const from = sanitizeFromPath(searchParams.get('from'));
   const backHref = from
     ? from
     : isBranchDirector && user?.branchId
@@ -98,11 +114,19 @@ export default function StaffDocumentsPage() {
     if (url) window.open(url, '_blank');
   };
 
+  if (isOwnProfile) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">Opening My documents…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageBackLink href={backHref} />
 
-      <PageHeader title={isOwnProfile ? 'My documents' : 'Teacher documents'} />
+      <PageHeader title="Staff documents" />
 
       <DocumentUploadMetadataDialog
         open={!!uploadTarget}

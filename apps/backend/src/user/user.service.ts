@@ -89,11 +89,10 @@ export class UserService {
     if (dto.role === UserRole.BRANCH_DIRECTOR) {
       if (
         currentUser.role !== UserRole.ADMIN &&
-        !isSchoolDirector(currentUser) &&
-        currentUser.role !== UserRole.SCHOOL_ADMIN
+        !isSchoolDirector(currentUser)
       ) {
         throw new ForbiddenException(
-          'Only a platform admin, school director, or school admin can assign a branch director',
+          'Only a platform admin or school director can assign a branch director',
         );
       }
       if (branchId && schoolId) {
@@ -105,8 +104,7 @@ export class UserService {
         );
       }
       if (
-        (isSchoolDirector(currentUser) ||
-          currentUser.role === UserRole.SCHOOL_ADMIN) &&
+        isSchoolDirector(currentUser) &&
         schoolId &&
         currentUser.schoolId &&
         schoolId !== currentUser.schoolId
@@ -119,7 +117,7 @@ export class UserService {
 
     if (
       (isSchoolDirector(currentUser) ||
-        currentUser.role === UserRole.SCHOOL_ADMIN) &&
+        currentUser.role === UserRole.DIRECTOR) &&
       branchId &&
       (dto.role === UserRole.TEACHER || dto.role === UserRole.STUDENT)
     ) {
@@ -267,8 +265,34 @@ export class UserService {
         },
       });
     }
+    if (
+      currentUser.role === UserRole.STUDENT &&
+      currentUser.branchId &&
+      currentUser.schoolId
+    ) {
+      return this.prisma.user.findMany({
+        where: {
+          role: UserRole.TEACHER,
+          branchId: currentUser.branchId,
+          schoolId: currentUser.schoolId,
+        },
+        orderBy: [{ email: 'asc' }],
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          schoolId: true,
+          branchId: true,
+          createdAt: true,
+          staffPosition: true,
+          staffClearanceActive: true,
+          branch: { select: { id: true, name: true, schoolId: true } },
+        },
+      });
+    }
     throw new ForbiddenException(
-      'Only a school director or branch director can list teachers this way',
+      'Only a school director, branch director, or student (own branch) can list teachers this way',
     );
   }
 
@@ -337,11 +361,7 @@ export class UserService {
   ) {
     if (currentUser.role === UserRole.ADMIN) {
       // ok
-    } else if (isSchoolDirector(currentUser)) {
-      if (currentUser.schoolId !== schoolId) {
-        throw new ForbiddenException('Cannot access this school');
-      }
-    } else if (currentUser.role === UserRole.SCHOOL_ADMIN) {
+    } else if (currentUser.role === UserRole.DIRECTOR) {
       if (currentUser.schoolId !== schoolId) {
         throw new ForbiddenException('Cannot access this school');
       }
@@ -407,7 +427,7 @@ export class UserService {
         createdAt: true,
         staffPosition: true,
         staffClearanceActive: true,
-        branch: { select: { id: true, schoolId: true } },
+        branch: { select: { id: true, name: true, schoolId: true } },
       },
     });
   }
@@ -609,24 +629,16 @@ export class UserService {
       );
     }
 
-    if (actor.role === UserRole.SCHOOL_ADMIN) {
+    if (actor.role === UserRole.DIRECTOR) {
       if (!actor.schoolId) {
         throw new ForbiddenException('Your account is not linked to a school');
       }
-      const ok = await this.userBelongsToSchool(target.id, actor.schoolId);
-      if (!ok) {
-        throw new ForbiddenException('User is not in your school');
-      }
-      return;
-    }
-
-    if (isSchoolDirector(actor)) {
       if (target.role === UserRole.DIRECTOR) {
         throw new ForbiddenException(
           'Only a platform admin can edit the school director',
         );
       }
-      const ok = await this.userBelongsToSchool(target.id, actor.schoolId!);
+      const ok = await this.userBelongsToSchool(target.id, actor.schoolId);
       if (!ok) {
         throw new ForbiddenException('User is not in your school');
       }
@@ -639,7 +651,6 @@ export class UserService {
       }
       if (
         target.role === UserRole.DIRECTOR ||
-        target.role === UserRole.SCHOOL_ADMIN ||
         target.role === UserRole.BRANCH_DIRECTOR
       ) {
         throw new ForbiddenException('You cannot edit this account');
@@ -708,27 +719,10 @@ export class UserService {
       branchId: string | null;
     },
   ) {
-    if (dto.role === UserRole.SCHOOL_ADMIN) {
-      throw new BadRequestException(
-        'SCHOOL_ADMIN is no longer used; use DIRECTOR for the school owner',
-      );
-    }
     if (currentUser.role === UserRole.ADMIN) {
       return;
     }
-    if (isSchoolDirector(currentUser)) {
-      if (
-        dto.role !== UserRole.TEACHER &&
-        dto.role !== UserRole.STUDENT &&
-        dto.role !== UserRole.BRANCH_DIRECTOR
-      ) {
-        throw new ForbiddenException(
-          'You can only create teachers, students, or branch directors',
-        );
-      }
-      return;
-    }
-    if (currentUser.role === UserRole.SCHOOL_ADMIN) {
+    if (currentUser.role === UserRole.DIRECTOR) {
       if (!currentUser.schoolId) {
         throw new ForbiddenException('Your account is not linked to a school');
       }
@@ -786,16 +780,7 @@ export class UserService {
       }
       return { schoolId: null, branchId: null };
     }
-    if (isSchoolDirector(currentUser)) {
-      if (dto.role === UserRole.BRANCH_DIRECTOR) {
-        if (dto.branchId) {
-          return { schoolId: currentUser.schoolId, branchId: dto.branchId };
-        }
-        return { schoolId: currentUser.schoolId, branchId: null };
-      }
-      return { schoolId: null, branchId: dto.branchId ?? null };
-    }
-    if (currentUser.role === UserRole.SCHOOL_ADMIN) {
+    if (currentUser.role === UserRole.DIRECTOR) {
       if (!currentUser.schoolId) {
         throw new ForbiddenException('Your account is not linked to a school');
       }

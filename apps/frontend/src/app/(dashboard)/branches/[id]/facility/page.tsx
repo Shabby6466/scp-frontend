@@ -61,7 +61,7 @@ export default function FacilityDocsPage() {
 
   const canVerify =
     user?.role === 'ADMIN' ||
-    user?.role === 'SCHOOL_ADMIN' ||
+    user?.role === 'DIRECTOR' ||
     user?.role === 'DIRECTOR' ||
     user?.role === 'BRANCH_DIRECTOR';
 

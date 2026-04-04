@@ -6,6 +6,7 @@ import { useGetBranchesQuery } from '@/store/features/branchApi';
 import {
   useGetAllUsersQuery,
   useGetSchoolUsersQuery,
+  useGetTeachersQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
 } from '@/store/features/userApi';
@@ -36,39 +37,22 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { UserPlus } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
-
-function rowBelongsToSchool(row: UserSummary, schoolId: string): boolean {
-  if (row.schoolId === schoolId) return true;
-  if (row.branch?.schoolId === schoolId) return true;
-  return false;
-}
-
-function canShowEditUser(
-  actor: { id: string; role: string; schoolId: string | null; branchId?: string | null },
-  row: UserSummary,
-): boolean {
-  if (actor.role === 'ADMIN') return true;
-  if (row.id === actor.id) return false;
-  if (row.role === 'ADMIN') return false;
-  if (actor.role === 'SCHOOL_ADMIN' && actor.schoolId) {
-    return rowBelongsToSchool(row, actor.schoolId);
-  }
-  if (actor.role === 'DIRECTOR' && actor.schoolId) {
-    if (row.role === 'DIRECTOR') return false;
-    return rowBelongsToSchool(row, actor.schoolId);
-  }
-  if (actor.role === 'BRANCH_DIRECTOR' && actor.branchId && actor.schoolId) {
-    if (['ADMIN', 'DIRECTOR', 'SCHOOL_ADMIN', 'BRANCH_DIRECTOR'].includes(row.role)) {
-      return false;
-    }
-    return row.branchId === actor.branchId;
-  }
-  return false;
-}
+import { canShowEditUser } from '@/lib/school-user-permissions';
 
 interface SchoolUsersPanelProps {
-  /** Required for school admin / director (scoped list). Ignored for platform admin. */
+  /** Required for director / branch director scoped views. Ignored for platform admin. */
   schoolId: string;
+  title?: string;
+  description?: string;
+  fixedRole?: UserSummary['role'];
+  allowedCreateRoles?: Array<'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER' | 'STUDENT'>;
+  readOnly?: boolean;
+  /**
+   * Load via `GET /teachers` (session-scoped: branch teachers for students & branch directors;
+   * all school teachers for directors). Use for student read-only teacher directory — avoids
+   * `GET /schools/:id/users`, which is staff-only.
+   */
+  sessionTeachers?: boolean;
 }
 
 const BASE_COLUMNS: DataTableColumnDef<UserSummary>[] = [
@@ -101,7 +85,15 @@ const LOCATION_COLUMN: DataTableColumnDef<UserSummary> = {
   },
 };
 
-export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
+export function SchoolUsersPanel({
+  schoolId,
+  title,
+  description,
+  fixedRole,
+  allowedCreateRoles,
+  readOnly = false,
+  sessionTeachers = false,
+}: SchoolUsersPanelProps) {
   const user = useAppSelector((state) => state.auth.user);
   const isAdmin = user?.role === 'ADMIN';
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -113,9 +105,10 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
   const [form, setForm] = useState({
     email: '',
     name: '',
-    role: 'TEACHER' as 'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER',
+    role: 'TEACHER' as 'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER' | 'STUDENT',
   });
   const [createBranchId, setCreateBranchId] = useState('');
+  const [search, setSearch] = useState('');
   /** Admin only: explicit school pick; defaults to first school when unset. */
   const [createSchoolId, setCreateSchoolId] = useState<string | null>(null);
 
@@ -129,8 +122,9 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
   const targetSchoolIdForCreate = isAdmin ? resolvedCreateSchoolId : schoolId;
   const adminSchoolSelectValue =
     createSchoolId ?? (schoolId.trim() ? schoolId : null) ?? '__none__';
-  const teacherNeedsBranch =
-    form.role === 'TEACHER' && Boolean(targetSchoolIdForCreate.trim());
+  const assigneeNeedsBranch =
+    (form.role === 'TEACHER' || form.role === 'STUDENT') &&
+    Boolean(targetSchoolIdForCreate.trim());
 
   const {
     data: branchesForCreate,
@@ -147,7 +141,7 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
     form.role === 'TEACHER' ? (createBranchId || defaultTeacherBranchId) : '';
 
   const { data: school, isLoading: schoolLoading } = useGetSchoolQuery(schoolId, {
-    skip: !schoolId || isAdmin,
+    skip: !schoolId || isAdmin || sessionTeachers,
   });
 
   const {
@@ -156,7 +150,16 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
     isError: schoolUsersError,
     error: schoolUsersErrorPayload,
   } = useGetSchoolUsersQuery(schoolId, {
-    skip: !schoolId || isAdmin,
+    skip: !schoolId || isAdmin || sessionTeachers,
+  });
+
+  const {
+    data: teachersFromSession,
+    isLoading: teachersFromSessionLoading,
+    isError: teachersFromSessionError,
+    error: teachersFromSessionErrorPayload,
+  } = useGetTeachersQuery(undefined, {
+    skip: !sessionTeachers || isAdmin,
   });
 
   const {
@@ -168,10 +171,26 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
     skip: !isAdmin,
   });
 
-  const users = isAdmin ? allUsers : schoolUsers;
-  const usersLoading = isAdmin ? allUsersLoading : schoolUsersLoading;
-  const usersError = isAdmin ? allUsersError : schoolUsersError;
-  const usersErrorPayload = isAdmin ? allUsersErrorPayload : schoolUsersErrorPayload;
+  const users = isAdmin
+    ? allUsers
+    : sessionTeachers
+      ? teachersFromSession
+      : schoolUsers;
+  const usersLoading = isAdmin
+    ? allUsersLoading
+    : sessionTeachers
+      ? teachersFromSessionLoading
+      : schoolUsersLoading;
+  const usersError = isAdmin
+    ? allUsersError
+    : sessionTeachers
+      ? teachersFromSessionError
+      : schoolUsersError;
+  const usersErrorPayload = isAdmin
+    ? allUsersErrorPayload
+    : sessionTeachers
+      ? teachersFromSessionErrorPayload
+      : schoolUsersErrorPayload;
 
   const usersErrorMessage =
     usersError && usersErrorPayload && 'data' in usersErrorPayload
@@ -180,7 +199,6 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
         ? 'Could not load users'
         : null;
 
-  const isSchoolAdmin = user?.role === 'SCHOOL_ADMIN';
   const isDirector = user?.role === 'DIRECTOR';
   const isBranchDirector = user?.role === 'BRANCH_DIRECTOR';
 
@@ -192,17 +210,45 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
     if (isAdmin && prop) {
       setCreateSchoolId(prop);
     }
+    const nextRole =
+      fixedRole && roleOptions.includes(fixedRole as never)
+        ? (fixedRole as 'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER' | 'STUDENT')
+        : ((roleOptions[0] ?? 'TEACHER') as
+            | 'DIRECTOR'
+            | 'BRANCH_DIRECTOR'
+            | 'TEACHER'
+            | 'STUDENT');
+    setForm((f) => ({ ...f, role: nextRole }));
     setDialogOpen(true);
   };
 
+  const roleOptions = useMemo<
+    Array<'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER' | 'STUDENT'>
+  >(() => {
+    if (allowedCreateRoles && allowedCreateRoles.length > 0) {
+      return [...allowedCreateRoles];
+    }
+    if (isAdmin) return ['DIRECTOR', 'BRANCH_DIRECTOR', 'TEACHER', 'STUDENT'];
+    if (isDirector) return ['BRANCH_DIRECTOR', 'TEACHER', 'STUDENT'];
+    if (isBranchDirector) return ['TEACHER', 'STUDENT'];
+    return [];
+  }, [allowedCreateRoles, isAdmin, isDirector, isBranchDirector]);
+
   const columns = useMemo((): DataTableColumnDef<UserSummary>[] => {
-    const dataCols = isAdmin ? [...BASE_COLUMNS, LOCATION_COLUMN, ROLE_COLUMN] : [...BASE_COLUMNS, ROLE_COLUMN];
-    const canManageOthers = isAdmin || isSchoolAdmin || isDirector || isBranchDirector;
+    const baseCols =
+      fixedRole != null
+        ? isAdmin
+          ? [...BASE_COLUMNS, LOCATION_COLUMN]
+          : [...BASE_COLUMNS]
+        : isAdmin
+          ? [...BASE_COLUMNS, LOCATION_COLUMN, ROLE_COLUMN]
+          : [...BASE_COLUMNS, ROLE_COLUMN];
+    const canManageOthers = !readOnly && (isAdmin || isDirector || isBranchDirector);
     if (!canManageOthers || !user) {
-      return dataCols;
+      return baseCols;
     }
     return [
-      ...dataCols,
+      ...baseCols,
       {
         id: 'actions',
         header: '',
@@ -227,7 +273,7 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
           ) : null,
       },
     ];
-  }, [isAdmin, isSchoolAdmin, isDirector, isBranchDirector, user]);
+  }, [fixedRole, isAdmin, isDirector, isBranchDirector, readOnly, user]);
 
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,15 +301,19 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
     }
   };
 
-  const canCreateDirector = isAdmin;
-  const canCreateBranchDirector = isAdmin || isDirector || isSchoolAdmin;
-  const canCreateTeacher = isAdmin || isSchoolAdmin || isDirector || isBranchDirector;
-
   const closeInviteDialog = () => {
     setDialogOpen(false);
     setCreateSchoolId(null);
     setCreateBranchId('');
-    setForm({ email: '', name: '', role: 'TEACHER' });
+    const nextDefaultRole =
+      fixedRole && roleOptions.includes(fixedRole as never)
+        ? (fixedRole as 'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER' | 'STUDENT')
+        : ((roleOptions[0] ?? 'TEACHER') as
+            | 'DIRECTOR'
+            | 'BRANCH_DIRECTOR'
+            | 'TEACHER'
+            | 'STUDENT');
+    setForm({ email: '', name: '', role: nextDefaultRole });
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -273,7 +323,7 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
       ? targetSchoolIdForCreate.trim() || undefined
       : schoolId.trim();
     if (!isAdmin && !scopeSchoolId) return;
-    if (teacherNeedsBranch && !effectiveTeacherBranchId) {
+    if (assigneeNeedsBranch && !effectiveTeacherBranchId) {
       toast('Select a branch', 'error');
       return;
     }
@@ -284,7 +334,10 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
         role: form.role,
         ...(scopeSchoolId ? { schoolId: scopeSchoolId } : {}),
       };
-      if (form.role === 'TEACHER' && effectiveTeacherBranchId) {
+      if (
+        (form.role === 'TEACHER' || form.role === 'STUDENT') &&
+        effectiveTeacherBranchId
+      ) {
         data.branchId = effectiveTeacherBranchId;
       } else if (
         form.role === 'BRANCH_DIRECTOR' &&
@@ -304,11 +357,11 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
     }
   };
 
-  if (!isAdmin && !schoolId) {
+  if (!isAdmin && !schoolId && !sessionTeachers) {
     return null;
   }
 
-  if (!isAdmin && (schoolLoading || !school)) {
+  if (!isAdmin && !sessionTeachers && (schoolLoading || !school)) {
     return (
       <div className="space-y-6">
         <div className="h-8 w-48 animate-pulse rounded bg-muted" />
@@ -317,10 +370,41 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
     );
   }
 
-  const pageTitle = isAdmin ? 'All users' : school!.name;
-  const pageDescription = isAdmin
-    ? 'Everyone in the platform (no school filter).'
-    : 'Users';
+  if (!isAdmin && sessionTeachers && usersLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-64 animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
+
+  const allRows = users ?? [];
+  const filteredUsers = allRows.filter((row) => {
+    if (fixedRole && row.role !== fixedRole) return false;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [
+      row.email,
+      row.name ?? '',
+      row.role,
+      row.school?.name ?? '',
+      row.branch?.name ?? '',
+    ]
+      .join(' ')
+      .toLowerCase();
+    return hay.includes(q);
+  });
+
+  const pageTitle =
+    title ?? (isAdmin ? 'All users' : sessionTeachers ? 'Teachers' : school!.name);
+  const pageDescription =
+    description ??
+    (isAdmin
+      ? 'Everyone in the platform (no school filter).'
+      : sessionTeachers
+        ? 'Teachers at your branch.'
+        : 'Users');
 
   return (
     <div className="space-y-6">
@@ -328,7 +412,7 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
         title={pageTitle}
         description={pageDescription}
         actions={
-          canCreateDirector || canCreateBranchDirector || canCreateTeacher ? (
+          !readOnly && roleOptions.length > 0 ? (
             <Button onClick={openInviteDialog} disabled={isAdmin && schoolsLoading}>
               <UserPlus className="mr-2 h-4 w-4" />
               Add user
@@ -404,31 +488,42 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor={`invite-role-${targetSchoolIdForCreate || 'x'}`}>Role</Label>
-                <Select
-                  value={form.role}
-                  onValueChange={(value) => {
-                    const r = value as 'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER';
-                    setForm((f) => ({ ...f, role: r }));
-                    if (r === 'BRANCH_DIRECTOR') {
-                      setCreateBranchId('__pool__');
-                    } else {
-                      setCreateBranchId('');
-                    }
-                  }}
-                >
-                  <SelectTrigger id={`invite-role-${targetSchoolIdForCreate || 'x'}`} className="w-full">
-                    <SelectValue placeholder="Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {canCreateDirector && <SelectItem value="DIRECTOR">Director</SelectItem>}
-                    {canCreateBranchDirector && (
-                      <SelectItem value="BRANCH_DIRECTOR">Branch director</SelectItem>
-                    )}
-                    {canCreateTeacher && <SelectItem value="TEACHER">Teacher</SelectItem>}
-                  </SelectContent>
-                </Select>
+                {fixedRole ? (
+                  <Input readOnly value={fixedRole.replace('_', ' ')} className="bg-muted/40" />
+                ) : (
+                  <Select
+                    value={form.role}
+                    onValueChange={(value) => {
+                      const r = value as 'DIRECTOR' | 'BRANCH_DIRECTOR' | 'TEACHER' | 'STUDENT';
+                      setForm((f) => ({ ...f, role: r }));
+                      if (r === 'BRANCH_DIRECTOR') {
+                        setCreateBranchId('__pool__');
+                      } else {
+                        setCreateBranchId('');
+                      }
+                    }}
+                  >
+                    <SelectTrigger id={`invite-role-${targetSchoolIdForCreate || 'x'}`} className="w-full">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roleOptions.includes('DIRECTOR') && (
+                        <SelectItem value="DIRECTOR">Director</SelectItem>
+                      )}
+                      {roleOptions.includes('BRANCH_DIRECTOR') && (
+                        <SelectItem value="BRANCH_DIRECTOR">Branch director</SelectItem>
+                      )}
+                      {roleOptions.includes('TEACHER') && (
+                        <SelectItem value="TEACHER">Teacher</SelectItem>
+                      )}
+                      {roleOptions.includes('STUDENT') && (
+                        <SelectItem value="STUDENT">Student</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
-              {form.role === 'TEACHER' && (
+              {(form.role === 'TEACHER' || form.role === 'STUDENT') && (
                 <div className="space-y-2">
                   <Label htmlFor={`invite-branch-${targetSchoolIdForCreate || 'x'}`}>Branch</Label>
                   {!targetSchoolIdForCreate.trim() ? (
@@ -501,7 +596,7 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
                 type="submit"
                 disabled={
                   isCreating ||
-                  (teacherNeedsBranch &&
+                  (assigneeNeedsBranch &&
                     (branchesForCreateLoading ||
                       branchesForCreateFetching ||
                       !effectiveTeacherBranchId ||
@@ -609,7 +704,21 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
         <Alert variant="destructive">
           <AlertDescription>{usersErrorMessage}</AlertDescription>
         </Alert>
-      ) : usersLoading ? (
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="users-search">Search</Label>
+            <Input
+              id="users-search"
+              placeholder="Search by email, name, role, school, or branch"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      {usersError && usersErrorMessage ? null : usersLoading ? (
         <DataTable.Card>
           <DataTable.Table>
             <DataTable.Header>
@@ -620,17 +729,19 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
             </DataTable.Body>
           </DataTable.Table>
         </DataTable.Card>
-      ) : !users?.length ? (
+      ) : !filteredUsers.length ? (
         <EmptyState
           icon={UserPlus}
-          title="No users yet"
+          title="No users found"
           description={
-            isAdmin
-              ? 'No accounts in the system yet.'
-              : 'Add teachers to get started. Students are created when children are enrolled at a branch. The school director is assigned by a platform admin.'
+            search.trim()
+              ? 'No results match your search.'
+              : isAdmin
+                ? 'No accounts in the system yet.'
+                : 'Add users to get started for this role.'
           }
           action={
-            canCreateDirector || canCreateBranchDirector || canCreateTeacher
+            !readOnly && roleOptions.length > 0
               ? { label: 'Add user', onClick: openInviteDialog }
               : undefined
           }
@@ -642,7 +753,7 @@ export function SchoolUsersPanel({ schoolId }: SchoolUsersPanelProps) {
               <DataTable.ColumnHeaderRow columns={columns} />
             </DataTable.Header>
             <DataTable.Body>
-              <DataTable.ColumnRows data={users} columns={columns} getRowKey={(u) => u.id} />
+              <DataTable.ColumnRows data={filteredUsers} columns={columns} getRowKey={(u) => u.id} />
             </DataTable.Body>
           </DataTable.Table>
         </DataTable.Card>

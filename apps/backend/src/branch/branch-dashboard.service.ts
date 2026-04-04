@@ -49,7 +49,7 @@ export class BranchDashboardService {
       return branch;
     }
 
-    if (user.role === UserRole.SCHOOL_ADMIN) {
+    if (user.role === UserRole.DIRECTOR) {
       if (user.schoolId !== branch.schoolId) {
         throw new ForbiddenException('Cannot access this branch');
       }

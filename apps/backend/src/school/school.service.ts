@@ -75,11 +75,7 @@ export class SchoolService {
         },
       });
     }
-    const where =
-      isSchoolDirector(user) ||
-      (user.role === UserRole.SCHOOL_ADMIN && user.schoolId)
-        ? { id: user.schoolId! }
-        : {};
+    const where = isSchoolDirector(user) ? { id: user.schoolId! } : {};
     return this.prisma.school.findMany({
       where,
       orderBy: { name: 'asc' },
@@ -99,9 +95,6 @@ export class SchoolService {
       if (!user.schoolId || user.schoolId !== id) {
         throw new ForbiddenException('Cannot access this school');
       }
-    }
-    if (user.role === UserRole.SCHOOL_ADMIN && user.schoolId !== id) {
-      throw new ForbiddenException('Cannot access this school');
     }
     const school = await this.prisma.school.findUnique({
       where: { id },
@@ -135,9 +128,6 @@ export class SchoolService {
       if (!user.schoolId || user.schoolId !== id) {
         throw new ForbiddenException('Cannot update this school');
       }
-    }
-    if (user?.role === UserRole.SCHOOL_ADMIN && user.schoolId !== id) {
-      throw new ForbiddenException('Cannot update this school');
     }
     await this.findOne(id, user ?? { role: UserRole.ADMIN, schoolId: null });
     return this.prisma.school.update({

@@ -12,7 +12,6 @@ import { FormsAnalyticsQueryDto } from './dto/forms-analytics-query.dto.js';
 @Roles(
   UserRole.ADMIN,
   UserRole.DIRECTOR,
-  UserRole.SCHOOL_ADMIN,
   UserRole.BRANCH_DIRECTOR,
   UserRole.TEACHER,
 )

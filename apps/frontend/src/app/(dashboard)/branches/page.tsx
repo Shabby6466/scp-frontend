@@ -16,7 +16,7 @@ export default function BranchesHubPage() {
   const user = useAppSelector((s) => s.auth.user);
   const isSchoolScoped =
     user?.role === 'DIRECTOR' ||
-    user?.role === 'SCHOOL_ADMIN' ||
+    user?.role === 'DIRECTOR' ||
     user?.role === 'BRANCH_DIRECTOR';
 
   const { data: schools, isLoading, isError } = useGetSchoolsQuery(undefined, {

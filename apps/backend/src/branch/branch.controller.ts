@@ -31,7 +31,7 @@ export class BranchController {
 
   @Post('schools/:schoolId/branches')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
   create(
     @Param('schoolId') schoolId: string,
     @Body() dto: CreateBranchDto,
@@ -45,7 +45,7 @@ export class BranchController {
   @UseGuards(RolesGuard)
   @Roles(
     UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
   )
@@ -59,7 +59,7 @@ export class BranchController {
 
   @Get('branches/:id/dashboard-summary')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
   dashboardSummary(
     @Param('id') id: string,
     @CurrentUser()
@@ -77,7 +77,7 @@ export class BranchController {
   @UseGuards(RolesGuard)
   @Roles(
     UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
   )
@@ -100,7 +100,7 @@ export class BranchController {
   @UseGuards(RolesGuard)
   @Roles(
     UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
   )
@@ -130,7 +130,7 @@ export class BranchController {
   @UseGuards(RolesGuard)
   @Roles(
     UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
   )
@@ -146,7 +146,7 @@ export class BranchController {
   @UseGuards(RolesGuard)
   @Roles(
     UserRole.ADMIN,
-    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
     UserRole.DIRECTOR,
     UserRole.BRANCH_DIRECTOR,
   )
@@ -161,7 +161,7 @@ export class BranchController {
 
   @Delete('branches/:id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
   remove(
     @Param('id') id: string,
     @CurrentUser()

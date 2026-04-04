@@ -44,7 +44,7 @@ export class SchoolController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SCHOOL_ADMIN, UserRole.DIRECTOR)
+  @Roles(UserRole.ADMIN, UserRole.DIRECTOR)
   update(
     @Param('id') id: string,
     @Body() dto: UpdateSchoolDto,

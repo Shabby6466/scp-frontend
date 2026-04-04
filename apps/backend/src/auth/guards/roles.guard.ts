@@ -10,8 +10,7 @@ import { ROLES_KEY } from '../decorators/roles.decorator.js';
 
 /**
  * Explicit allow-list (not numeric hierarchy) so BRANCH_DIRECTOR does not
- * satisfy DIRECTOR-only routes, and SCHOOL_ADMIN can still reach routes that
- * list DIRECTOR (service enforces school scope).
+ * satisfy DIRECTOR-only routes (explicit allow-list, not numeric hierarchy).
  */
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -42,12 +41,6 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    if (
-      role === UserRole.SCHOOL_ADMIN &&
-      requiredRoles.includes(UserRole.DIRECTOR)
-    ) {
-      return true;
-    }
 
     throw new ForbiddenException(
       `Requires one of: ${requiredRoles.join(', ')}`,
