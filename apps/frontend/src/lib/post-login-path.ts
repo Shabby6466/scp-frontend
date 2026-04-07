@@ -10,11 +10,17 @@ export function getPostLoginPath(
   if (role === 'BRANCH_DIRECTOR' && user?.branchId) {
     return `/branches/${user.branchId}`;
   }
-  if (role === 'DIRECTOR' || role === 'SCHOOL_ADMIN') {
+  if (role === 'DIRECTOR') {
     return '/branches';
   }
+  if (role === 'BRANCH_DIRECTOR') {
+    return '/teachers';
+  }
+  if (role === 'TEACHER') {
+    return '/my-documents';
+  }
   if (role === 'STUDENT') {
-    return '/my-children';
+    return '/my-documents';
   }
   return '/dashboard';
 }

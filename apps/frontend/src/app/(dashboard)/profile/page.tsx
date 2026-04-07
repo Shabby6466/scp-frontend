@@ -65,6 +65,142 @@ export default function ProfilePage() {
               </div>
             </FieldContent>
           </Field>
+          {(me.role === 'DIRECTOR' || me.role === 'TEACHER' || me.role === 'STUDENT') && (
+            <Field>
+              <FieldLabel>School</FieldLabel>
+              <FieldContent>
+                <Input readOnly value={me.school?.name ?? '—'} className="bg-muted/40" />
+              </FieldContent>
+            </Field>
+          )}
+          {(me.role === 'BRANCH_DIRECTOR' ||
+            me.role === 'TEACHER' ||
+            me.role === 'STUDENT') && (
+            <Field>
+              <FieldLabel>Branch</FieldLabel>
+              <FieldContent>
+                <Input readOnly value={me.branch?.name ?? '—'} className="bg-muted/40" />
+              </FieldContent>
+            </Field>
+          )}
+          {(me.role === 'TEACHER' || me.role === 'STUDENT') && (
+            <>
+              <Field>
+                <FieldLabel>Owner director</FieldLabel>
+                <FieldContent>
+                  <Input
+                    readOnly
+                    value={
+                      me.ownerDirector
+                        ? `${me.ownerDirector.name ?? '—'} (${me.ownerDirector.email})`
+                        : '—'
+                    }
+                    className="bg-muted/40"
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>Owner branch director</FieldLabel>
+                <FieldContent>
+                  <Input
+                    readOnly
+                    value={
+                      me.ownerBranchDirector
+                        ? `${me.ownerBranchDirector.name ?? '—'} (${me.ownerBranchDirector.email})`
+                        : '—'
+                    }
+                    className="bg-muted/40"
+                  />
+                </FieldContent>
+              </Field>
+            </>
+          )}
+          {me.role === 'DIRECTOR' && (
+            <Field>
+              <FieldLabel>Office phone</FieldLabel>
+              <FieldContent>
+                <Input
+                  readOnly
+                  value={me.directorProfile?.officePhone ?? '—'}
+                  className="bg-muted/40"
+                />
+              </FieldContent>
+            </Field>
+          )}
+          {me.role === 'BRANCH_DIRECTOR' && (
+            <Field>
+              <FieldLabel>Branch start date</FieldLabel>
+              <FieldContent>
+                <Input
+                  readOnly
+                  value={
+                    me.branchDirectorProfile?.branchStartDate
+                      ? new Date(me.branchDirectorProfile.branchStartDate).toLocaleDateString()
+                      : '—'
+                  }
+                  className="bg-muted/40"
+                />
+              </FieldContent>
+            </Field>
+          )}
+          {me.role === 'TEACHER' && (
+            <>
+              <Field>
+                <FieldLabel>Subject area</FieldLabel>
+                <FieldContent>
+                  <Input
+                    readOnly
+                    value={me.teacherProfile?.subjectArea ?? '—'}
+                    className="bg-muted/40"
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>Employee code</FieldLabel>
+                <FieldContent>
+                  <Input
+                    readOnly
+                    value={me.teacherProfile?.employeeCode ?? '—'}
+                    className="bg-muted/40"
+                  />
+                </FieldContent>
+              </Field>
+            </>
+          )}
+          {me.role === 'STUDENT' && (
+            <>
+              <Field>
+                <FieldLabel>Roll number</FieldLabel>
+                <FieldContent>
+                  <Input
+                    readOnly
+                    value={me.studentProfile?.rollNumber ?? '—'}
+                    className="bg-muted/40"
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>Guardian</FieldLabel>
+                <FieldContent>
+                  <Input
+                    readOnly
+                    value={me.studentProfile?.guardianName ?? '—'}
+                    className="bg-muted/40"
+                  />
+                </FieldContent>
+              </Field>
+              <Field>
+                <FieldLabel>Guardian phone</FieldLabel>
+                <FieldContent>
+                  <Input
+                    readOnly
+                    value={me.studentProfile?.guardianPhone ?? '—'}
+                    className="bg-muted/40"
+                  />
+                </FieldContent>
+              </Field>
+            </>
+          )}
           <Field>
             <FieldLabel>Password</FieldLabel>
             <FieldContent>

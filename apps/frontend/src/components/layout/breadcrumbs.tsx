@@ -26,15 +26,20 @@ const pathLabels: Record<string, string> = {
   facility: 'Facility',
   new: 'Add new',
   teachers: 'Teachers',
+  students: 'Students',
+  directors: 'Directors',
+  'branch-directors': 'Branch directors',
   dashboard: 'Dashboard',
   'my-branch': 'My Branch',
   'my-children': 'My student',
   'my-staff-file': 'My Documents',
+  'my-documents': 'My Documents',
   compliance: 'Compliance',
   settings: 'Settings',
   profile: 'My profile',
-  'document-uploading': 'Document Uploading',
+  'document-uploading': 'My Documents',
   'document-requirements': 'Document Requirements',
+  'document-types': 'Document Types',
 };
 
 export function Breadcrumbs({ items: customItems }: BreadcrumbsProps) {

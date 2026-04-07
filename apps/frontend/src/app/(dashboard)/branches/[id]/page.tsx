@@ -38,7 +38,7 @@ export default function BranchDetailPage() {
 
   const canManage =
     user?.role === 'ADMIN' ||
-    user?.role === 'SCHOOL_ADMIN' ||
+    user?.role === 'DIRECTOR' ||
     user?.role === 'DIRECTOR' ||
     user?.role === 'BRANCH_DIRECTOR';
 

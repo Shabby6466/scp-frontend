@@ -36,7 +36,6 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
-  Settings,
   Shield,
   UserCircle,
   Users,
@@ -54,47 +53,45 @@ const ROLE_LABELS: Record<string, string> = {
 const ADMIN_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/schools', label: 'Schools', icon: Building2 },
-  { href: '/users', label: 'Users', icon: Users },
-  { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
-  { href: '/document-requirements/new', label: 'Assign Documents', icon: GraduationCap },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/branches', label: 'Branches', icon: Building2 },
+  { href: '/directors', label: 'Directors', icon: Shield },
+  { href: '/branch-directors', label: 'Branch directors', icon: Users },
+  { href: '/teachers', label: 'Teachers', icon: GraduationCap },
+  { href: '/students', label: 'Students', icon: Users },
+  { href: '/document-types', label: 'Document types', icon: FileText },
 ];
 
 const TEACHER_NAV: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/my-branch', label: 'My Branch', icon: Building2 },
-  { href: '/document-uploading', label: 'My Documents', icon: FileText },
+  { href: '/dashboard', label: 'Dashboard', icon: Building2 },
+  { href: '/students', label: 'Students', icon: Users },
+  { href: '/my-documents', label: 'My Documents', icon: FileText },
 ];
 
 const STUDENT_NAV: { href: string; label: string; icon: LucideIcon }[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/document-uploading', label: 'My Documents', icon: FileText },
-  { href: '/my-children', label: 'My profile', icon: GraduationCap },
+  { href: '/dashboard', label: 'Dashboard', icon: Building2 },
+  { href: '/teachers', label: 'Teachers', icon: GraduationCap },
+  { href: '/my-documents', label: 'My Documents', icon: FileText },
 ];
 
 function schoolOwnerNav(user: AuthUser): { href: string; label: string; icon: LucideIcon }[] {
-  const teachersHref =
-    user.role === 'SCHOOL_ADMIN' && user.schoolId
-      ? `/schools/${user.schoolId}/teachers`
-      : '/school/teachers';
-  const baseNav: { href: string; label: string; icon: LucideIcon }[] = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/branches', label: 'Branches', icon: Building2 },
-    { href: '/document-uploading', label: 'Document Uploading', icon: FileText },
-  ];
-
-  if (user.role === 'DIRECTOR' || user.role === 'BRANCH_DIRECTOR') {
+  if (user.role === 'DIRECTOR') {
     return [
-      ...baseNav,
-      { href: teachersHref, label: 'Teachers', icon: GraduationCap },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/branches', label: 'Branches', icon: Building2 },
+      { href: '/branch-directors', label: 'Branch directors', icon: Users },
+      { href: '/school/teachers', label: 'Teachers', icon: GraduationCap },
       { href: '/school/students', label: 'Students', icon: Users },
-      { href: '/document-requirements/new', label: 'Assign Documents', icon: FileText },
+      { href: '/document-types', label: 'Document types', icon: FileText },
+      { href: '/my-documents', label: 'My Documents', icon: FileText },
     ];
   }
 
   return [
-    ...baseNav,
-    { href: teachersHref, label: 'Teachers', icon: GraduationCap },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/school/teachers', label: 'Teachers', icon: GraduationCap },
+    { href: '/school/students', label: 'Students', icon: Users },
+    { href: '/document-types', label: 'Document types', icon: FileText },
+    { href: '/my-documents', label: 'My Documents', icon: FileText },
   ];
 }
 
@@ -102,9 +99,6 @@ function getNavItems(user: AuthUser | null): { href: string; label: string; icon
   if (!user) return [];
   if (user.role === 'ADMIN') return ADMIN_NAV;
   if (user.role === 'DIRECTOR') {
-    return schoolOwnerNav(user);
-  }
-  if (user.role === 'SCHOOL_ADMIN') {
     return schoolOwnerNav(user);
   }
   if (user.role === 'BRANCH_DIRECTOR') {
@@ -141,9 +135,6 @@ export function AppSidebar() {
             <h1 className="text-xl font-bold tracking-tight text-white">
               School System
             </h1>
-            <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest">
-              {user ? (ROLE_LABELS[user.role] ?? user.role) : 'Dashboard'}
-            </p>
           </div>
         </div>
       </SidebarHeader>
@@ -176,17 +167,39 @@ export function AppSidebar() {
                 if (item.href === '/branches') {
                   isActive = isActive || /^\/schools\/[^/]+\/branches(?:\/|$)/.test(pathname);
                 }
-                if (item.href.includes('/teachers')) {
-                  isActive = pathname === '/school/teachers' || pathname.startsWith('/school/teachers/') || /^\/schools\/[^/]+\/teachers(?:\/|$)/.test(pathname);
-                }
-                if (item.href === '/school/students') {
+                if (item.href.includes('/teachers') || item.href === '/teachers') {
                   isActive =
+                    pathname === '/teachers' ||
+                    pathname.startsWith('/teachers/') ||
+                    pathname === '/school/teachers' ||
+                    pathname.startsWith('/school/teachers/') ||
+                    /^\/schools\/[^/]+\/teachers(?:\/|$)/.test(pathname);
+                }
+                if (item.href.includes('/students') || item.href === '/students') {
+                  isActive =
+                    pathname === '/students' ||
+                    pathname.startsWith('/students/') ||
                     pathname === '/school/students' ||
                     pathname.startsWith('/school/students/') ||
                     pathname === '/branches' ||
                     /^\/branches\/[^/]+(?:\/|$)/.test(pathname) ||
                     pathname === '/children' ||
                     /^\/children\/[^/]+(?:\/|$)/.test(pathname);
+                }
+                if (item.href === '/document-types') {
+                  isActive =
+                    pathname === '/document-types' ||
+                    pathname.startsWith('/document-types/') ||
+                    pathname === '/document-requirements/new' ||
+                    pathname.startsWith('/document-requirements/');
+                }
+                if (item.href === '/my-documents') {
+                  isActive =
+                    pathname === '/my-documents' ||
+                    pathname.startsWith('/my-documents/') ||
+                    pathname === '/my-staff-file' ||
+                    pathname === '/document-uploading' ||
+                    pathname.startsWith('/document-uploading/');
                 }
                 const Icon = item.icon;
                 return (

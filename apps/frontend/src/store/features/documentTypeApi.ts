@@ -6,6 +6,10 @@ export interface DocumentType {
   category?: string;
   targetRole?: string | null;
   createdById?: string | null;
+  schoolId?: string | null;
+  branchId?: string | null;
+  school?: { id: string; name: string } | null;
+  branch?: { id: string; name: string } | null;
   isMandatory: boolean;
   renewalPeriod: string;
   isConditional?: boolean;
@@ -17,7 +21,7 @@ export const documentTypeApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getDocumentTypes: builder.query<
       DocumentType[],
-      { schoolId?: string; targetRole?: string }
+      { schoolId?: string; branchId?: string; targetRole?: string }
     >({
       query: (params) => ({
         url: '/document-types',
@@ -35,6 +39,7 @@ export const documentTypeApi = api.injectEndpoints({
         name: string;
         targetRole: string;
         schoolId?: string;
+        branchId?: string;
         renewalPeriod?: string;
       }
     >({
@@ -44,6 +49,25 @@ export const documentTypeApi = api.injectEndpoints({
         body,
       }),
       invalidatesTags: ['DocumentType'],
+    }),
+    updateDocumentType: builder.mutation<
+      DocumentType,
+      {
+        id: string;
+        body: {
+          name?: string;
+          renewalPeriod?: string;
+          isMandatory?: boolean;
+          targetRole?: string;
+        };
+      }
+    >({
+      query: ({ id, body }) => ({
+        url: `/document-types/${id}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['DocumentType', 'Document'],
     }),
     assignDocumentTypeUsers: builder.mutation<
       {
@@ -108,6 +132,7 @@ export const {
   useGetDocumentTypesQuery,
   useGetDocumentTypeQuery,
   useCreateDocumentTypeMutation,
+  useUpdateDocumentTypeMutation,
   useAssignDocumentTypeUsersMutation,
   useUnassignDocumentTypeUserMutation,
   useGetAssignedDocumentTypesForMeQuery,

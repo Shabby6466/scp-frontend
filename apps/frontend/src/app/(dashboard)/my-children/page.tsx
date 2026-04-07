@@ -12,7 +12,7 @@ export default function MyChildrenPage() {
 
   useEffect(() => {
     if (user?.role === 'STUDENT') {
-      router.replace('/document-uploading');
+      router.replace('/my-documents');
     } else {
       router.replace('/dashboard');
     }

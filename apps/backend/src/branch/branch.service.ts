@@ -300,7 +300,7 @@ export class BranchService {
     if (user.role === UserRole.ADMIN) return;
 
     if (
-      user.role === UserRole.SCHOOL_ADMIN &&
+      user.role === UserRole.DIRECTOR &&
       user.schoolId === branch.schoolId
     )
       return;

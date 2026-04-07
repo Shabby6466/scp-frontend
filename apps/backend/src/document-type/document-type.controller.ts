@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -14,6 +15,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { UserRole } from '@prisma/client';
 import { CreateDocumentTypeDto } from './dto/create-document-type.dto.js';
 import { AssignDocumentTypeDto } from './dto/assign-document-type.dto.js';
+import { UpdateDocumentTypeDto } from './dto/update-document-type.dto.js';
 
 @Controller('document-types')
 @UseGuards(JwtAuthGuard)
@@ -101,13 +103,41 @@ export class DocumentTypeController {
       branchId: string | null;
     },
     @Query('schoolId') schoolId?: string,
+    @Query('branchId') branchId?: string,
     @Query('targetRole') targetRole?: UserRole,
   ) {
-    return this.documentTypeService.findAll({ schoolId, targetRole }, user);
+    return this.documentTypeService.findAll(
+      { schoolId, branchId, targetRole },
+      user,
+    );
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateDocumentTypeDto,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentTypeService.update(id, dto, user);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.documentTypeService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.documentTypeService.findOne(id, user);
   }
 }

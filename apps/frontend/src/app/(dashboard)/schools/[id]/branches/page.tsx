@@ -70,7 +70,7 @@ export default function SchoolBranchesPage() {
    */
   const canManageBranches =
     isAdmin ||
-    ((user?.role === 'DIRECTOR' || user?.role === 'SCHOOL_ADMIN') &&
+    (user?.role === 'DIRECTOR' &&
       !!school &&
       school.id === schoolId);
   const {
@@ -181,7 +181,7 @@ export default function SchoolBranchesPage() {
   }
 
   const headerDescription =
-    canManageBranches && (user?.role === 'DIRECTOR' || user?.role === 'SCHOOL_ADMIN')
+    canManageBranches && user?.role === 'DIRECTOR'
       ? 'Locations for this school. Add a branch by name; you can link a branch director from Users when ready.'
       : user?.role === 'BRANCH_DIRECTOR'
         ? 'Your branch location for this school.'

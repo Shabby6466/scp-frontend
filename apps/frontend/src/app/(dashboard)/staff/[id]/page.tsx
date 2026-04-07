@@ -1,13 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
-
-import { useGetUserDetailQuery, useUpdateUserMutation } from '@/store/features/userApi';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import {
+  useGetDocumentsByStaffQuery,
+  usePresignMutation,
+  useCompleteDocumentMutation,
+  useLazyGetDownloadUrlQuery,
+  useVerifyDocumentMutation,
+} from '@/store/features/documentApi';
 import { useGetDocumentTypesQuery } from '@/store/features/documentTypeApi';
 import { toast, toastError } from '@/lib/toast';
 import { putFileToPresignedUrl } from '@/lib/presigned-upload';
-import { usePresignMutation, useCompleteDocumentMutation, useLazyGetDownloadUrlQuery, useVerifyDocumentMutation, useVerifyManyMutation, useNudgeMutation } from '@/store/features/documentApi';
 import { useAppSelector } from '@/store/hooks';
 import { DataTable } from '@/components/data/data-table';
 import { BulkActionToolbar } from '@/components/data/bulk-action-toolbar';
@@ -27,9 +31,14 @@ import { cn } from '@/lib/utils';
 
 export default function StaffDocumentsPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const teacherUserId = params.id as string;
   const user = useAppSelector((state) => state.auth.user);
+  const from = sanitizeFromPath(searchParams.get('from'));
+
+  const isOwnProfile = Boolean(user?.id && user.id === teacherUserId);
+
   const [uploadingTypeId, setUploadingTypeId] = useState<string | null>(null);
   const [uploadTarget, setUploadTarget] = useState<{
     documentTypeId: string;
@@ -37,7 +46,20 @@ export default function StaffDocumentsPage() {
     file: File;
   } | null>(null);
 
-  const { data: userDetail, isLoading: isLoadingDetail } = useGetUserDetailQuery(teacherUserId);
+  useEffect(() => {
+    if (isOwnProfile && user?.id) {
+      const q = from ? `?from=${encodeURIComponent(from)}` : '';
+      router.replace(`/my-documents${q}`);
+    }
+  }, [isOwnProfile, user?.id, router, from]);
+
+  const { data: documents } = useGetDocumentsByStaffQuery(teacherUserId, {
+    skip: isOwnProfile,
+  });
+  const { data: docTypes } = useGetDocumentTypesQuery(
+    { schoolId: user?.schoolId ?? undefined },
+    { skip: !user?.schoolId || isOwnProfile },
+  );
   const [presign] = usePresignMutation();
   const [completeDoc] = useCompleteDocumentMutation();
   const [getDownloadUrl] = useLazyGetDownloadUrlQuery();
@@ -57,11 +79,15 @@ export default function StaffDocumentsPage() {
 
   const canVerify =
     user?.role === 'ADMIN' ||
-    user?.role === 'SCHOOL_ADMIN' ||
     user?.role === 'DIRECTOR' ||
     user?.role === 'BRANCH_DIRECTOR';
+  const isBranchDirector = user?.role === 'BRANCH_DIRECTOR';
 
-  const isOwnProfile = user?.id === teacherUserId;
+  const backHref = from
+    ? from
+    : isBranchDirector && user?.branchId
+      ? `/branches/${user.branchId}`
+      : '/dashboard';
 
   const docsByType = new Map(userDetail.ownerDocuments.map((d) => [d.documentTypeId, d]));
 
@@ -109,64 +135,19 @@ export default function StaffDocumentsPage() {
     if (url) window.open(url, '_blank');
   };
 
-  const handleVerifyMany = async (ids: string[]) => {
-    try {
-      await verifyMany(ids).unwrap();
-      toast(`Verified ${ids.length} documents`);
-    } catch (err) {
-      toastError(err, 'Bulk verification failed');
-    }
-  };
-
-  const handleNudge = async (documentTypeId: string, label: string) => {
-    try {
-      await nudge({ ownerUserId: teacherUserId, documentTypeId }).unwrap();
-      toast(`Reminder sent for ${label}`);
-    } catch (err) {
-      toastError(err, 'Failed to send reminder');
-    }
-  };
-
-  const from = sanitizeFromPath(searchParams.get('from'));
-  const backHref = from || (user?.role === 'BRANCH_DIRECTOR' ? `/branches/${user.branchId}` : '/users');
+  if (isOwnProfile) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">Opening My documents…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       <PageBackLink href={backHref} />
 
-      {/* Profile Header */}
-      <div className="relative overflow-hidden bg-card border rounded-2xl shadow-sm p-6 md:p-8 animate-in fade-in zoom-in-95 duration-500">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-          <UserIcon size={120} />
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-          <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">
-            <UserIcon size={32} />
-          </div>
-
-          <div className="space-y-2 flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{userDetail.name || 'No Name'}</h1>
-              <RoleBadge role={userDetail.role} />
-              {userDetail.staffClearanceActive !== undefined && (
-                <Badge variant={userDetail.staffClearanceActive ? "default" : "secondary"} className="rounded-full px-3">
-                  {userDetail.staffClearanceActive ? (
-                    <span className="flex items-center gap-1.5"><CheckCircle2 size={12} /> Cleared</span>
-                  ) : (
-                    <span className="flex items-center gap-1.5"><Clock size={12} /> Pending Clearance</span>
-                  )}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-muted-foreground text-sm">
-              <span className="flex items-center gap-2"><Mail size={14} /> {userDetail.email}</span>
-              {userDetail.school && <span className="flex items-center gap-2"><Building size={14} /> {userDetail.school.name}</span>}
-              {userDetail.branch && <span className="flex items-center gap-2 font-medium"><Briefcase size={14} /> {userDetail.branch.name}</span>}
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Staff documents" />
 
       <DocumentUploadMetadataDialog
         open={!!uploadTarget}

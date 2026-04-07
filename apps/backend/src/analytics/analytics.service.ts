@@ -41,7 +41,7 @@ export class AnalyticsService {
       }
       return { kind: 'branch', branchId: user.branchId };
     }
-    if (user.role === UserRole.SCHOOL_ADMIN || isSchoolDirector(user)) {
+    if (user.role === UserRole.DIRECTOR || isSchoolDirector(user)) {
       if (!user.schoolId) {
         throw new ForbiddenException('Account is not linked to a school');
       }

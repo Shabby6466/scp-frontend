@@ -74,7 +74,7 @@ export default function SchoolTeachersAdminPage() {
 
   const canAccess =
     role === 'ADMIN' ||
-    (role === 'SCHOOL_ADMIN' && user?.schoolId === schoolId);
+    (role === 'DIRECTOR' && user?.schoolId === schoolId);
 
   const { data: schoolUsersPage, isLoading } = useGetSchoolUsersQuery(
     { schoolId },

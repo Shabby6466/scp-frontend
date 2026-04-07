@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -273,9 +274,22 @@ export class AuthService {
         email: true,
         name: true,
         role: true,
+        authorities: true,
         schoolId: true,
         branchId: true,
         createdAt: true,
+        emailVerifiedAt: true,
+        staffPosition: true,
+        staffClearanceActive: true,
+        assignedBy: { select: { id: true, name: true, email: true } },
+        directorProfile: { select: { officePhone: true, notes: true } },
+        branchDirectorProfile: { select: { branchStartDate: true, notes: true } },
+        teacherProfile: {
+          select: { subjectArea: true, employeeCode: true, joiningDate: true },
+        },
+        studentProfile: {
+          select: { rollNumber: true, guardianName: true, guardianPhone: true },
+        },
         password: true,
         school: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true, schoolId: true } },
@@ -286,9 +300,31 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    let ownerDirector: { id: string; name: string | null; email: string } | null =
+      null;
+    let ownerBranchDirector:
+      | { id: string; name: string | null; email: string }
+      | null = null;
+    if (user.role === UserRole.TEACHER || user.role === UserRole.STUDENT) {
+      if (user.schoolId) {
+        ownerDirector = await this.prisma.user.findFirst({
+          where: { role: UserRole.DIRECTOR, schoolId: user.schoolId },
+          select: { id: true, name: true, email: true },
+          orderBy: { createdAt: 'asc' },
+        });
+      }
+      if (user.branchId) {
+        ownerBranchDirector = await this.prisma.user.findFirst({
+          where: { role: UserRole.BRANCH_DIRECTOR, branchId: user.branchId },
+          select: { id: true, name: true, email: true },
+          orderBy: { createdAt: 'asc' },
+        });
+      }
+    }
+
     const hasPassword = user.password != null && user.password.length > 0;
     const { password: _p, ...rest } = user;
-    return { ...rest, hasPassword };
+    return { ...rest, ownerDirector, ownerBranchDirector, hasPassword };
   }
 
   async sendVerificationOtp(
