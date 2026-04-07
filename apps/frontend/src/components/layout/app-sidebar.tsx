@@ -41,6 +41,15 @@ import {
   Users,
 } from 'lucide-react';
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Platform Admin',
+  SCHOOL_ADMIN: 'School Admin',
+  DIRECTOR: 'School Director',
+  BRANCH_DIRECTOR: 'Branch Director',
+  TEACHER: 'Teacher',
+  STUDENT: 'Student',
+};
+
 const ADMIN_NAV: { href: string; label: string; icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/schools', label: 'Schools', icon: Building2 },

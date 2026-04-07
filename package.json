@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "turbo dev",
+    "dev:turbo": "turbo dev:turbo",
     "build": "turbo build",
     "lint": "turbo lint",
     "db:generate": "prisma generate",
@@ -17,14 +18,16 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
-    "turbo": "^2",
+    "@types/pdfkit": "^0.17.5",
     "prisma": "^6",
     "tsx": "^4",
+    "turbo": "^2",
     "typescript": "^5"
   },
   "dependencies": {
     "@prisma/client": "^6",
-    "bcrypt": "^6"
+    "bcrypt": "^6",
+    "pdfkit": "^0.18.0"
   },
   "packageManager": "pnpm@9.15.4"
 }

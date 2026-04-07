@@ -19,6 +19,20 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
+
+const DataTableSelectionContext = React.createContext<{
+  selectedIds: string[];
+  toggleId: (id: string) => void;
+  toggleAll: (ids: string[]) => void;
+  isAllSelected: boolean;
+} | null>(null);
+
+export function useDataTableSelection() {
+  const context = React.useContext(DataTableSelectionContext);
+  if (!context) return null;
+  return context;
+}
 
 function insetClass(inset?: 'start' | 'end' | 'both') {
   return cn(
@@ -215,4 +229,55 @@ export const DataTable = {
   EmptyWrap: DataTableEmptyWrap,
   ColumnHeaderRow: DataTableColumnHeaderRow,
   ColumnRows: DataTableColumnRows,
+  SelectionProvider: ({ children, dataIds }: { children: React.ReactNode; dataIds: string[] }) => {
+    const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+    
+    const toggleId = (id: string) => {
+      setSelectedIds(prev => 
+        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      );
+    };
+
+    const toggleAll = (allIds: string[]) => {
+      if (selectedIds.length === allIds.length) {
+        setSelectedIds([]);
+      } else {
+        setSelectedIds(allIds);
+      }
+    };
+
+    const isAllSelected = dataIds.length > 0 && selectedIds.length === dataIds.length;
+
+    return (
+      <DataTableSelectionContext.Provider value={{ selectedIds, toggleId, toggleAll, isAllSelected }}>
+        {children}
+      </DataTableSelectionContext.Provider>
+    );
+  },
+  SelectionHeader: ({ allIds }: { allIds: string[] }) => {
+    const ctx = useDataTableSelection();
+    if (!ctx) return null;
+    return (
+      <DataTableHead inset="start" className="w-12">
+        <Checkbox 
+          checked={ctx.isAllSelected} 
+          onCheckedChange={() => ctx.toggleAll(allIds)} 
+          aria-label="Select all"
+        />
+      </DataTableHead>
+    );
+  },
+  SelectionCell: ({ id }: { id: string }) => {
+    const ctx = useDataTableSelection();
+    if (!ctx) return null;
+    return (
+      <DataTableCell inset="start" className="w-12">
+        <Checkbox 
+          checked={ctx.selectedIds.includes(id)} 
+          onCheckedChange={() => ctx.toggleId(id)} 
+          aria-label={`Select row ${id}`}
+        />
+      </DataTableCell>
+    );
+  }
 };

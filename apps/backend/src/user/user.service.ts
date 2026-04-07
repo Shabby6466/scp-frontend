@@ -15,6 +15,8 @@ import {
   canManageSchoolBranches,
   isSchoolDirector,
 } from '../auth/school-scope.util.js';
+import { SearchUserDto } from './dto/search-user.dto.js';
+import { SearchDocumentDto } from '../document/dto/search-document.dto.js';
 
 /** Plain shape for `userBelongsToSchool` query (avoids ESLint losing Prisma.GetPayload nested types). */
 interface UserSchoolScopeRow {
@@ -358,6 +360,7 @@ export class UserService {
       schoolId: string | null;
       branchId: string | null;
     },
+    dto: SearchUserDto = {},
   ) {
     if (currentUser.role === UserRole.ADMIN) {
       // ok
@@ -414,7 +417,7 @@ export class UserService {
           }
         : schoolScope;
 
-    return this.prisma.user.findMany({
+    return this.paginate(this.prisma.user, {
       where,
       orderBy: [{ role: 'desc' }, { email: 'asc' }],
       select: {
@@ -429,11 +432,11 @@ export class UserService {
         staffClearanceActive: true,
         branch: { select: { id: true, name: true, schoolId: true } },
       },
-    });
+    }, dto);
   }
 
-  async listAll() {
-    return this.prisma.user.findMany({
+  async listAll(dto: SearchUserDto = {}) {
+    return this.paginate(this.prisma.user, {
       orderBy: [{ role: 'desc' }, { email: 'asc' }],
       select: {
         id: true,
@@ -448,7 +451,181 @@ export class UserService {
         school: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true, schoolId: true } },
       },
+    }, dto);
+  }
+
+  async searchUsers(
+    dto: SearchUserDto,
+    currentUser: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    const and: Prisma.UserWhereInput[] = [];
+
+    // 1. Role-based scoping
+    if (currentUser.role !== UserRole.ADMIN) {
+      if (isSchoolDirector(currentUser) || currentUser.role === UserRole.SCHOOL_ADMIN) {
+        and.push({
+          OR: [
+            { schoolId: currentUser.schoolId! },
+            { branch: { schoolId: currentUser.schoolId! } },
+          ],
+        });
+      } else if (currentUser.role === UserRole.BRANCH_DIRECTOR) {
+        and.push({ branchId: currentUser.branchId! });
+      } else {
+        // Teachers/Students shouldn't really be searching users globally,
+        // but if they do, they only see themselves.
+        and.push({ id: currentUser.id });
+      }
+    }
+
+    // 2. Filters from DTO
+    if (dto.query?.trim()) {
+      const q = dto.query.trim();
+      and.push({
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (dto.role) {
+      and.push({ role: dto.role });
+    }
+
+    if (dto.schoolId && currentUser.role === UserRole.ADMIN) {
+      and.push({ schoolId: dto.schoolId });
+    }
+
+    if (dto.branchId) {
+      and.push({ branchId: dto.branchId });
+    }
+
+    if (dto.staffPosition) {
+      and.push({ staffPosition: dto.staffPosition });
+    }
+
+    if (dto.staffClearanceActive !== undefined) {
+      and.push({ staffClearanceActive: dto.staffClearanceActive });
+    }
+
+    const where: Prisma.UserWhereInput = and.length > 0 ? { AND: and } : {};
+
+    return this.paginate(this.prisma.user, {
+      where,
+      orderBy: [{ role: 'desc' }, { name: 'asc' }],
+      include: {
+        school: true,
+        branch: true,
+      },
+    }, dto);
+  }
+
+  private async paginate(
+    model: any,
+    args: any,
+    params: { page?: number; limit?: number },
+  ) {
+    const page = Math.max(1, params.page || 1);
+    const limit = Math.max(1, Math.min(100, params.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      model.findMany({
+        ...args,
+        take: limit,
+        skip,
+      }),
+      model.count({ where: args.where }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getUserDetail(
+    targetId: string,
+    actor: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: targetId },
+      include: {
+        school: true,
+        branch: true,
+        directorProfile: true,
+        branchDirectorProfile: true,
+        teacherProfile: true,
+        studentProfile: true,
+        ownerDocuments: {
+          include: {
+            documentType: true,
+            uploadedBy: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        requiredDocTypes: {
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        },
+      },
     });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Permission check
+    if (actor.role !== UserRole.ADMIN && actor.id !== targetId) {
+      const isSuperior = await this.isSuperiorOf(actor, user);
+      if (!isSuperior) {
+        throw new ForbiddenException('Cannot access this user details');
+      }
+    }
+
+    return user;
+  }
+
+  private async isSuperiorOf(
+    actor: {
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+    target: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ): Promise<boolean> {
+    if (actor.role === UserRole.ADMIN) return true;
+    
+    if (isSchoolDirector(actor) || actor.role === UserRole.SCHOOL_ADMIN) {
+      if (!actor.schoolId) return false;
+      return this.userBelongsToSchool(target.id, actor.schoolId);
+    }
+
+    if (actor.role === UserRole.BRANCH_DIRECTOR) {
+      if (!actor.branchId) return false;
+      return this.userBelongsToBranchScope(target.id, actor.branchId);
+    }
+
+    return false;
   }
 
   async updateUser(

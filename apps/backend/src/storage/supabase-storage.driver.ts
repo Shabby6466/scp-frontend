@@ -45,21 +45,27 @@ export class SupabaseStorageDriver implements StorageDriver {
     contentType: string,
     _expiresInSeconds = 900,
   ): Promise<PresignedUploadResult> {
-    const { data, error } = await this.client()
-      .storage.from(this.bucket)
-      .createSignedUploadUrl(key);
+    try {
+      const { data, error } = await this.client()
+        .storage.from(this.bucket)
+        .createSignedUploadUrl(key);
 
-    if (error) {
-      throw new Error(`Supabase signed upload URL failed: ${error.message}`);
-    }
-    if (!data?.signedUrl) {
-      throw new Error('Supabase signed upload URL returned no URL');
-    }
+      if (error) {
+        console.error('[SupabaseStorage] createSignedUploadUrl failed:', error);
+        throw new Error(`Supabase signed upload URL failed: ${error.message}`);
+      }
+      if (!data?.signedUrl) {
+        throw new Error('Supabase signed upload URL returned no URL');
+      }
 
-    return {
-      uploadUrl: data.signedUrl,
-      uploadToken: data.token,
-    };
+      return {
+        uploadUrl: data.signedUrl,
+        uploadToken: data.token,
+      };
+    } catch (err: any) {
+      console.error('[SupabaseStorage] createPresignedUploadUrl unexpected error:', err);
+      throw err;
+    }
   }
 
   async createPresignedDownloadUrl(

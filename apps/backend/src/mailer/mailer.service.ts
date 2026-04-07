@@ -220,4 +220,34 @@ export class MailerService {
         ),
     );
   }
+
+  async sendDocumentActionReminder(
+    toEmail: string,
+    userName: string,
+    documentTypeName: string,
+  ): Promise<void> {
+    const subject = `Action Required: ${documentTypeName}`;
+    const html = `
+      <p>Hello ${userName},</p>
+      <p>This is a reminder that your document <strong>${documentTypeName}</strong> requires your attention (either missing or needs re-upload).</p>
+      <p>Please log in to the School System portal to complete this requirement.</p>
+    `;
+    const text = `Hello ${userName}, this is a reminder that your document ${documentTypeName} requires your attention. Please log in to the School System portal.`;
+
+    const emailParams = new EmailParams()
+      .setFrom(new Sender(this.fromEmail, this.fromName))
+      .setTo([new Recipient(toEmail, toEmail)])
+      .setSubject(subject)
+      .setHtml(html)
+      .setText(text);
+
+    await this.dispatchEmail(
+      `Document action reminder sent to ${toEmail}`,
+      (client) => client.email.send(emailParams),
+      () =>
+        this.logger.log(
+          `[DEV] Document nudge for ${toEmail}: ${documentTypeName}`,
+        ),
+    );
+  }
 }

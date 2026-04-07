@@ -34,6 +34,29 @@ export interface FormExpiryByTypeResponse {
   rows: FormExpiryRow[];
 }
 
+export interface ComplianceSummaryResponse {
+  score: number;
+  totalRequired: number;
+  verifiedCount: number;
+  pendingVerification: number;
+}
+
+export interface PendingActionsResponse {
+  recentUploads: {
+    id: string;
+    ownerUser: { id: string; name: string; email: string };
+    documentType: { name: string };
+    createdAt: string;
+  }[];
+  atRiskStaff: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    _count: { ownerDocuments: number };
+  }[];
+}
+
 export const analyticsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getFormSubmissions: builder.query<
@@ -73,6 +96,14 @@ export const analyticsApi = api.injectEndpoints({
       }),
       providesTags: ['Analytics'],
     }),
+    getComplianceSummary: builder.query<ComplianceSummaryResponse, void>({
+      query: () => '/analytics/compliance/summary',
+      providesTags: ['Analytics', 'Document'],
+    }),
+    getPendingActions: builder.query<PendingActionsResponse, void>({
+      query: () => '/analytics/compliance/pending-actions',
+      providesTags: ['Analytics', 'Document'],
+    }),
   }),
 });
 
@@ -80,4 +111,6 @@ export const {
   useGetFormSubmissionsQuery,
   useGetFormByUploaderQuery,
   useGetFormExpiryByTypeQuery,
+  useGetComplianceSummaryQuery,
+  useGetPendingActionsQuery,
 } = analyticsApi;

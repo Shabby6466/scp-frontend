@@ -1,6 +1,8 @@
 import {
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
@@ -11,6 +13,7 @@ import { PresignDto } from './dto/presign.dto.js';
 import { CompleteDocumentDto } from './dto/complete.dto.js';
 import PDFDocument from 'pdfkit';
 import { MailerService } from '../mailer/mailer.service.js';
+import { SearchDocumentDto } from './dto/search-document.dto.js';
 
 type CurrentUser = {
   id: string;
@@ -23,6 +26,7 @@ type EntityScope = { schoolId: string; branchId: string };
 
 @Injectable()
 export class DocumentService {
+  private readonly logger = new Logger(DocumentService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -50,12 +54,19 @@ export class DocumentService {
       dto.fileName,
     );
 
-    const { uploadUrl, uploadToken } =
-      await this.storage.createPresignedUploadUrl(s3Key, dto.mimeType);
+    try {
+      const { uploadUrl, uploadToken } =
+        await this.storage.createPresignedUploadUrl(s3Key, dto.mimeType);
 
-    return uploadToken !== undefined
-      ? { uploadUrl, s3Key, uploadToken }
-      : { uploadUrl, s3Key };
+      return uploadToken !== undefined
+        ? { uploadUrl, s3Key, uploadToken }
+        : { uploadUrl, s3Key };
+    } catch (err: any) {
+      console.error('[DocumentService.presign] Storage failure:', err);
+      throw new InternalServerErrorException(
+        `Failed to generate upload URL: ${err.message}`,
+      );
+    }
   }
 
   async complete(dto: CompleteDocumentDto, user: CurrentUser) {
@@ -85,9 +96,9 @@ export class DocumentService {
 
     const created = await this.prisma.document.create({
       data: {
-        documentTypeId: dto.documentTypeId,
-        uploadedById: user.id,
-        ownerUserId: dto.ownerUserId,
+        documentType: { connect: { id: dto.documentTypeId } },
+        uploadedBy: { connect: { id: user.id } },
+        ownerUser: { connect: { id: dto.ownerUserId } },
         s3Key: dto.s3Key,
         fileName: dto.fileName,
         mimeType: dto.mimeType,
@@ -129,6 +140,72 @@ export class DocumentService {
             isMandatory: true,
             renewalPeriod: true,
           },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async searchDocuments(dto: SearchDocumentDto, user: CurrentUser) {
+    const where: any = { AND: [] };
+    const and = where.AND;
+
+    // 1. Scoping
+    if (user.role !== UserRole.ADMIN) {
+      if (canManageBranchLikeDirector(user, { schoolId: user.schoolId || '', id: user.branchId || '' } as any)) {
+        if (user.branchId) {
+          and.push({ ownerUser: { branchId: user.branchId } });
+        } else if (user.schoolId) {
+          and.push({ ownerUser: { schoolId: user.schoolId } });
+        }
+      } else {
+        // Fallback: only own documents if not a director
+        and.push({ ownerUserId: user.id });
+      }
+    }
+
+    // 2. Filters
+    if (dto.query?.trim()) {
+      const q = dto.query.trim();
+      and.push({
+        OR: [
+          { fileName: { contains: q, mode: 'insensitive' } },
+          { ownerUser: { name: { contains: q, mode: 'insensitive' } } },
+          { ownerUser: { email: { contains: q, mode: 'insensitive' } } },
+        ],
+      });
+    }
+
+    if (dto.schoolId && user.role === UserRole.ADMIN) {
+      and.push({ ownerUser: { schoolId: dto.schoolId } });
+    }
+
+    if (dto.branchId) {
+      and.push({ ownerUser: { branchId: dto.branchId } });
+    }
+
+    if (dto.documentTypeId) {
+      and.push({ documentTypeId: dto.documentTypeId });
+    }
+
+    if (dto.verified !== undefined) {
+      if (dto.verified) {
+        and.push({ verifiedAt: { not: null } });
+      } else {
+        and.push({ verifiedAt: null });
+      }
+    }
+
+    if (dto.ownerRole) {
+      and.push({ ownerUser: { role: dto.ownerRole } });
+    }
+
+    return this.prisma.document.findMany({
+      where,
+      include: {
+        documentType: true,
+        ownerUser: {
+          select: { id: true, name: true, email: true, role: true, branchId: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -284,6 +361,44 @@ export class DocumentService {
     }
 
     return updated;
+  }
+
+  async verifyMany(documentIds: string[], user: CurrentUser) {
+    const results = [];
+    for (const id of documentIds) {
+      try {
+        const updated = await this.verify(id, user);
+        results.push(updated);
+      } catch (err: any) {
+        // Log individual failures but continue bulk process
+        this.logger.error(`Failed to verify document ${id}: ${err.message}`);
+      }
+    }
+    return { count: results.length, total: documentIds.length };
+  }
+
+  async nudge(ownerUserId: string, documentTypeId: string, user: CurrentUser) {
+    await this.ensureCanAccessDocumentOwner(ownerUserId, user);
+
+    const owner = await this.prisma.user.findUniqueOrThrow({
+      where: { id: ownerUserId },
+      select: { email: true, name: true },
+    });
+
+    const docType = await this.prisma.documentType.findUniqueOrThrow({
+      where: { id: documentTypeId },
+      select: { name: true },
+    });
+
+    if (owner.email) {
+      await this.mailer.sendDocumentActionReminder(
+        owner.email,
+        owner.name ?? owner.email,
+        docType.name,
+      );
+    }
+
+    return { success: true };
   }
 
   private async syncTeacherClearanceFromVerifiedDocs(ownerUserId: string) {

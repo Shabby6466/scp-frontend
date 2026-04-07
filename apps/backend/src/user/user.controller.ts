@@ -5,11 +5,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
+import { SearchUserDto } from './dto/search-user.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -24,8 +26,52 @@ export class UserController {
   @Get('users')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  listAll() {
-    return this.userService.listAll();
+  listAll(@Query() dto: SearchUserDto) {
+    return this.userService.listAll(dto);
+  }
+
+  @Get('users/search')
+  @UseGuards(RolesGuard)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+  )
+  searchUsers(
+    @Query() dto: SearchUserDto,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.userService.searchUsers(dto, user);
+  }
+
+  @Get('users/:id/detail')
+  @UseGuards(RolesGuard)
+  @Roles(
+    UserRole.ADMIN,
+    UserRole.SCHOOL_ADMIN,
+    UserRole.DIRECTOR,
+    UserRole.BRANCH_DIRECTOR,
+    UserRole.TEACHER,
+    UserRole.STUDENT,
+  )
+  getUserDetail(
+    @Param('id') id: string,
+    @CurrentUser()
+    user: {
+      id: string;
+      role: UserRole;
+      schoolId: string | null;
+      branchId: string | null;
+    },
+  ) {
+    return this.userService.getUserDetail(id, user);
   }
 
   @Post('users')
@@ -94,8 +140,9 @@ export class UserController {
     @Param('schoolId') schoolId: string,
     @CurrentUser()
     user: { role: UserRole; schoolId: string | null; branchId: string | null },
+    @Query() dto: SearchUserDto,
   ) {
-    return this.userService.listBySchool(schoolId, user);
+    return this.userService.listBySchool(schoolId, user, dto);
   }
 
   @Get('schools/:schoolId/branch-director-candidates')

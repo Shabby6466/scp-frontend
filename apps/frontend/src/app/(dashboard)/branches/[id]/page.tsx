@@ -24,13 +24,13 @@ export default function BranchDetailPage() {
   const { data: branch, isLoading: branchLoading } = useGetBranchQuery(branchId);
   const { data: teachers, isLoading: teachersLoading } = useGetBranchTeachersQuery(branchId);
   const { data: schoolUsers, isLoading: schoolUsersLoading } = useGetSchoolUsersQuery(
-    branch?.schoolId ?? '',
+    { schoolId: branch?.schoolId ?? '' },
     { skip: !branch?.schoolId },
   );
 
   const students = useMemo(
     () =>
-      (schoolUsers ?? []).filter(
+      (schoolUsers?.data ?? []).filter(
         (u) => u.role === 'STUDENT' && u.branchId === branchId,
       ),
     [schoolUsers, branchId],

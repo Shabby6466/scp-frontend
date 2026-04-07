@@ -9,8 +9,13 @@ import {
   useGetTeachersQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
+  useSearchUsersQuery,
 } from '@/store/features/userApi';
-import { Button } from '@/components/ui/button';
+import { UserSearchFilters, type UserFilters } from './user-search-filters';
+import { useDebounce } from '@/hooks/use-debounce';
+import Link from 'next/link';
+import { UserPlus } from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -35,7 +40,6 @@ import { EmptyState } from '@/components/layout/empty-state';
 import { toast, toastError } from '@/lib/toast';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { UserPlus } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
 import { canShowEditUser } from '@/lib/school-user-permissions';
 
@@ -78,7 +82,8 @@ const ROLE_COLUMN: DataTableColumnDef<UserSummary> = {
 const LOCATION_COLUMN: DataTableColumnDef<UserSummary> = {
   id: 'location',
   header: 'School / branch',
-  cellClassName: 'text-muted-foreground text-sm',
+  headerClassName: 'min-w-[200px]',
+  cellClassName: 'text-muted-foreground text-sm max-w-[300px] truncate',
   cell: (u) => {
     const parts = [u.school?.name, u.branch?.name].filter(Boolean);
     return parts.length ? parts.join(' · ') : '—';
@@ -111,6 +116,16 @@ export function SchoolUsersPanel({
   const [search, setSearch] = useState('');
   /** Admin only: explicit school pick; defaults to first school when unset. */
   const [createSchoolId, setCreateSchoolId] = useState<string | null>(null);
+
+  const [filters, setFilters] = useState<UserFilters>({
+    query: '',
+    role: 'ALL',
+    branchId: 'ALL',
+    staffClearanceActive: undefined,
+  });
+  const [page, setPage] = useState(1);
+  const limit = 20;
+  const debouncedQuery = useDebounce(filters.query, 400);
 
   const { data: schools, isLoading: schoolsLoading } = useGetSchoolsQuery(undefined, {
     skip: !isAdmin,
@@ -145,7 +160,7 @@ export function SchoolUsersPanel({
   });
 
   const {
-    data: schoolUsers,
+    data: schoolUsersResponse,
     isLoading: schoolUsersLoading,
     isError: schoolUsersError,
     error: schoolUsersErrorPayload,
@@ -163,12 +178,30 @@ export function SchoolUsersPanel({
   });
 
   const {
-    data: allUsers,
+    data: allUsersResponse,
     isLoading: allUsersLoading,
     isError: allUsersError,
     error: allUsersErrorPayload,
-  } = useGetAllUsersQuery(undefined, {
-    skip: !isAdmin,
+  } = useGetAllUsersQuery(
+    { page, limit },
+    {
+      skip: !isAdmin,
+    },
+  );
+
+  const {
+    data: searchedUsersResponse,
+    isLoading: searchedUsersLoading,
+    isError: searchedUsersError,
+    error: searchedUsersErrorPayload,
+  } = useSearchUsersQuery({
+    query: debouncedQuery || undefined,
+    role: filters.role === 'ALL' ? undefined : (filters.role as any),
+    branchId: filters.branchId === 'ALL' ? undefined : filters.branchId,
+    staffClearanceActive: filters.staffClearanceActive,
+    schoolId: isAdmin ? undefined : schoolId,
+    page,
+    limit,
   });
 
   const users = isAdmin
@@ -254,23 +287,33 @@ export function SchoolUsersPanel({
         header: '',
         headInset: 'end',
         cellInset: 'end',
-        headerClassName: 'w-[96px]',
-        cell: (row) =>
-          canShowEditUser(user, row) ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setEditName(row.name ?? '');
-                setEditPassword('');
-                setEditDirectorSchoolId(row.role === 'DIRECTOR' ? row.schoolId ?? null : null);
-                setEditTarget(row);
-              }}
+        headerClassName: 'w-[140px]',
+        cellClassName: 'w-[140px]',
+        cell: (row) => (
+          <div className="flex gap-2">
+            <Link 
+              href={`/staff/${row.id}${schoolId ? `?from=/users` : ''}`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Edit
-            </Button>
-          ) : null,
+              View
+            </Link>
+            {canShowEditUser(user, row) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditName(row.name ?? '');
+                  setEditPassword('');
+                  setEditDirectorSchoolId(row.role === 'DIRECTOR' ? row.schoolId ?? null : null);
+                  setEditTarget(row);
+                }}
+              >
+                Edit
+              </Button>
+            )}
+          </div>
+        ),
       },
     ];
   }, [fixedRole, isAdmin, isDirector, isBranchDirector, readOnly, user]);
@@ -419,6 +462,15 @@ export function SchoolUsersPanel({
             </Button>
           ) : null
         }
+      />
+
+      <UserSearchFilters 
+        schoolId={schoolId || undefined} 
+        filters={filters} 
+        onFiltersChange={(f) => {
+          setFilters(f);
+          setPage(1); // Reset page on filter change
+        }} 
       />
 
       <Dialog open={dialogOpen} onOpenChange={(open) => (open ? setDialogOpen(true) : closeInviteDialog())}>

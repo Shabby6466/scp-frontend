@@ -1,4 +1,5 @@
 import { api } from '../api';
+import { Document } from './documentApi';
 
 export interface UserSummary {
   id: string;
@@ -16,6 +17,37 @@ export interface UserSummary {
   branchId?: string | null;
 }
 
+export interface UserDetail extends UserSummary {
+  school: { id: string; name: string } | null;
+  branch: { id: string; name: string; schoolId: string } | null;
+  directorProfile?: { officePhone?: string; notes?: string } | null;
+  branchDirectorProfile?: { branchStartDate?: string; notes?: string } | null;
+  teacherProfile?: { subjectArea?: string; employeeCode?: string; joiningDate?: string } | null;
+  studentProfile?: { rollNumber?: string; guardianName?: string; guardianPhone?: string } | null;
+  ownerDocuments: (Document & { documentType?: { name: string } })[];
+  requiredDocTypes: { id: string; name: string; isMandatory: boolean; renewalPeriod: string }[];
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    lastPage: number;
+  };
+}
+
+export interface SearchUserParams {
+  query?: string;
+  role?: string;
+  branchId?: string;
+  staffPosition?: string;
+  staffClearanceActive?: boolean;
+  schoolId?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface CreateUserDto {
   email: string;
   name: string;
@@ -27,13 +59,16 @@ export interface CreateUserDto {
 
 export const userApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    getAllUsers: builder.query<UserSummary[], void>({
-      query: () => '/users',
+    getAllUsers: builder.query<PaginatedResponse<UserSummary>, SearchUserParams | void>({
+      query: (params) => ({ url: '/users', params: params || undefined }),
       providesTags: [{ type: 'User', id: 'ALL' }],
     }),
-    getSchoolUsers: builder.query<UserSummary[], string>({
-      query: (schoolId) => `/schools/${schoolId}/users`,
-      providesTags: (_result, _err, schoolId) => [{ type: 'User', id: `school-${schoolId}` }],
+    getSchoolUsers: builder.query<
+      PaginatedResponse<UserSummary>,
+      { schoolId: string; params?: SearchUserParams }
+    >({
+      query: ({ schoolId, params }) => ({ url: `/schools/${schoolId}/users`, params }),
+      providesTags: (_result, _err, { schoolId }) => [{ type: 'User', id: `school-${schoolId}` }],
     }),
     getTeachers: builder.query<UserSummary[], void>({
       query: () => '/teachers',
@@ -93,6 +128,14 @@ export const userApi = api.injectEndpoints({
       }),
       invalidatesTags: ['User'],
     }),
+    searchUsers: builder.query<PaginatedResponse<UserSummary>, SearchUserParams>({
+      query: (params) => ({ url: '/users/search', params }),
+      providesTags: ['User'],
+    }),
+    getUserDetail: builder.query<UserDetail, string>({
+      query: (id) => `/users/${id}/detail`,
+      providesTags: (_r, _e, id) => [{ type: 'User', id }],
+    }),
   }),
 });
 
@@ -103,4 +146,6 @@ export const {
   useGetBranchDirectorCandidatesQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
+  useSearchUsersQuery,
+  useGetUserDetailQuery,
 } = userApi;

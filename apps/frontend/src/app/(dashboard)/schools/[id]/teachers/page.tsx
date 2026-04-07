@@ -76,9 +76,10 @@ export default function SchoolTeachersAdminPage() {
     role === 'ADMIN' ||
     (role === 'DIRECTOR' && user?.schoolId === schoolId);
 
-  const { data: schoolUsers, isLoading } = useGetSchoolUsersQuery(schoolId, {
-    skip: !schoolId || !canAccess,
-  });
+  const { data: schoolUsersPage, isLoading } = useGetSchoolUsersQuery(
+    { schoolId },
+    { skip: !schoolId || !canAccess },
+  );
   const { data: branches } = useGetBranchesQuery(schoolId, {
     skip: !schoolId || !canAccess,
   });
@@ -88,8 +89,8 @@ export default function SchoolTeachersAdminPage() {
   const [branchId, setBranchId] = useState('');
 
   const teachers = useMemo(
-    () => schoolUsers?.filter((u) => u.role === 'TEACHER') ?? [],
-    [schoolUsers],
+    () => (schoolUsersPage?.data ?? []).filter((u) => u.role === 'TEACHER'),
+    [schoolUsersPage],
   );
 
   const resolvedBranchId = branchId || branches?.[0]?.id || '';
